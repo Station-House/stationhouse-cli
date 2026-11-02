@@ -25,7 +25,7 @@ use it. Thank you to the Open Athena team for it.
 ## Install
 
 ```bash
-uv tool install git+https://github.com/likelytobelaura/stationhouse-cli   # or: pip install .
+uv tool install git+https://github.com/Station-House/stationhouse-cli   # or: pip install .
 stationhouse login            # your Station House email + password
 stationhouse projects         # the projects you can see
 stationhouse project use <id> # the one you work in (skip it if there's only one)
@@ -128,7 +128,7 @@ Between rounds you revise the design with your agent. After round 3, finalizing 
 **In Claude Code**, install the plugin, then sign in once:
 
 ```
-/plugin marketplace add likelytobelaura/stationhouse-cli
+/plugin marketplace add Station-House/stationhouse-cli
 /plugin install stationhouse@stationhouse-cli
 ```
 
@@ -142,7 +142,7 @@ Then run `stationhouse login` in a terminal. The plugin contains:
 **Other agents (Codex, Cursor, ...):**
 
 ```bash
-pip install 'stationhouse-cli[mcp] @ git+https://github.com/likelytobelaura/stationhouse-cli'
+pip install 'stationhouse-cli[mcp] @ git+https://github.com/Station-House/stationhouse-cli'
 # register `stationhouse mcp` as a stdio MCP server in your agent's config
 stationhouse hooks install       # the same push gate, as this repo's git pre-push hook
 stationhouse agents-md           # the rules, in AGENTS.md
