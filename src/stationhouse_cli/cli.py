@@ -47,7 +47,9 @@ def cmd_login(args):
             print(f"Signed in as {creds['email']}.")
             return
         except DeviceLoginUnavailable:
-            print("This Station House doesn't do browser sign-in yet, so sign in with your password.")
+            print("This Station House can't approve sign-ins in the browser yet, so sign in with your password.\n"
+                  "Never had one (you joined with an email code, Google, GitHub or Hugging Face)? Set one on the\n"
+                  "website first: Log in > Use a password instead > Forgot password. Then run this again.")
     email = normalize_email(args.email or input("Station House email: "))
     password = getpass.getpass("Password: ")
     creds = login(email, password)

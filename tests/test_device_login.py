@@ -106,6 +106,8 @@ def test_falls_back_to_the_password_where_the_platform_has_no_device_sign_in(api
     monkeypatch.setattr("getpass.getpass", lambda prompt="": "pw")
     code, out, _ = run(capsys, "login")
     assert code == 0 and "password" in out and "Signed in as ada@example.com." in out
+    # Members who joined with an email code or a provider have no password: say how to get one (STA-136).
+    assert "Forgot password" in out
     assert seen == {"email": "ada@example.com", "password": "pw"}
     assert len(calls_to(api, "/api/auth/device/code")) == 1
 
