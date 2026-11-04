@@ -150,6 +150,13 @@ def test_an_ended_session_asks_for_a_new_login(api):
         auth.current_credentials()
 
 
+def test_a_disabled_account_is_told_so(api):
+    save_credentials(device_session(0))
+    api.routes[("GET", "/api/auth/token")] = (403, {"code": "ACCOUNT_DISABLED", "message": "This account is disabled."})
+    with pytest.raises(auth.AuthError, match="This account is disabled."):
+        auth.current_credentials()
+
+
 def test_api_calls_carry_the_jwt_and_no_id_token(api, capsys):
     save_credentials(device_session(time.time() + 900))
     api.routes[("GET", "/api/v1/me")] = (200, {"hfUsername": "ada"})

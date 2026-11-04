@@ -136,6 +136,8 @@ def _better_auth_jwt(session_token: str) -> str:
     status, out = _auth_call("GET", "/token", bearer=session_token)
     if status == 401:
         raise AuthError("Your session has expired. Run `stationhouse login`.")
+    if status == 403:  # e.g. the account was disabled: the platform says why
+        raise AuthError(out.get("message") or "Station House refused to sign you in.")
     if status != 200 or not out.get("token"):
         raise AuthError(f"Couldn't refresh your session: the server answered {status}.")
     return out["token"]
