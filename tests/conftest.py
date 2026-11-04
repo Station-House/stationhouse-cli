@@ -31,7 +31,8 @@ def signed_in():
 
 
 class FakeApi:
-    """Records requests and answers from `routes[(method, path)] = (status, body)`."""
+    """Records requests and answers from `routes[(method, path)] = (status, body)`, or from a list of
+    them, one per request in turn (the last one repeats)."""
 
     def __init__(self):
         self.routes, self.calls = {}, []
@@ -43,7 +44,10 @@ class FakeApi:
                 body = json.loads(self.rfile.read(length)) if length else None
                 path = self.path.split("?")[0]
                 api.calls.append({"method": self.command, "path": self.path, "body": body, "headers": dict(self.headers)})
-                status, out = api.routes.get((self.command, path), (404, {}))
+                answer = api.routes.get((self.command, path), (404, {}))
+                if isinstance(answer, list):
+                    answer = answer.pop(0) if len(answer) > 1 else answer[0]
+                status, out = answer
                 data = json.dumps(out).encode()
                 self.send_response(status)
                 self.send_header("Content-Type", "application/json")

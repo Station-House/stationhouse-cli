@@ -26,7 +26,7 @@ use it. Thank you to the Open Athena team for it.
 
 ```bash
 uv tool install git+https://github.com/Station-House/stationhouse-cli   # or: pip install .
-stationhouse login            # your Station House email + password
+stationhouse login            # approve it in your browser, where you're signed in to Station House
 stationhouse projects         # the projects you can see
 stationhouse project use <id> # the one you work in (skip it if there's only one)
 stationhouse unclaimed        # open tasks nobody is on
@@ -180,18 +180,23 @@ Then ask your agent "what should I work on?" It runs `find-work --json`, reads t
 reasons, and suggests a task. It claims only after you agree. The skill keeps your agent on the
 fact-returning commands rather than the platform's assistant: your agent is already the one doing
 the thinking, and `explore` is a plain lookup with no model in it. **You sign in yourself**: the
-skill tells the agent to ask you to run `stationhouse login` and never to handle your password.
+skill tells the agent to ask you to run `stationhouse login` and never to sign in for you.
 
 ## How sign-in works
 
-- `login` does a Cognito SRP sign-in to the Station House user pool, so the password is proven, not
-  sent. Only your email and password work: the CLI has no other way in.
+- `login` shows a code and a link to `https://app.station-house.net/device`. Open it in a browser
+  where you're signed in to Station House (any way in: email code, Google, GitHub or Hugging Face),
+  check the code matches, and approve it. The CLI never sees a password. Codes last 10 minutes; the
+  link opens by itself in a terminal with a browser (`--no-browser` just prints it).
+- `login --password` signs in with a Station House email and password instead (a Cognito SRP
+  sign-in, so the password is proven, not sent). Only accounts made before email-code sign-in have a
+  password, and it works until the platform retires Cognito. A server that can't do the browser
+  sign-in yet gets the password sign-in automatically.
 - The session is stored in `~/.config/stationhouse/credentials.json` (mode 0600): your email and
-  tokens, never your password. The access token refreshes itself; `stationhouse logout` deletes the
-  file.
-- Every API call carries your Cognito tokens. The platform works out who you are from them, and
-  your Hugging Face handle from the one you verified on the website, so nobody can claim as someone
-  else.
+  tokens, never a password. The access token refreshes itself; `stationhouse logout` ends the
+  session on the platform and deletes the file.
+- Every API call carries your access token. The platform works out who you are from it, and your
+  Hugging Face handle from the one you verified on the website, so nobody can claim as someone else.
 
 ## Status
 

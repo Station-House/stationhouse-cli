@@ -6,12 +6,13 @@ import io
 import json
 import shutil
 import sys
+import webbrowser
 from datetime import datetime
 from importlib import resources
 from pathlib import Path
 
 from . import __version__, chat, design, explore as explore_mod, gate, inbox, projects, traces, train, wizard, work
-from .auth import AuthError, current_credentials, login, normalize_email
+from .auth import AuthError, DeviceLoginUnavailable, current_credentials, device_login, login, normalize_email, sign_out
 from .client import ApiError, request
 from .store import clear_credentials, load_credentials
 
@@ -37,13 +38,37 @@ def _people_line(p):
 
 
 def cmd_login(args):
+    """Approve the sign-in in a browser where you're signed in to Station House (any way in: email
+    code, Google, GitHub, Hugging Face). A platform that can't do that yet, or --password, signs in
+    with a Station House password instead, which only accounts made before email-code sign-in have."""
+    if not (args.password or args.email):
+        try:
+            creds = device_login(lambda code: _show_device_code(code, open_browser=not args.no_browser))
+            print(f"Signed in as {creds['email']}.")
+            return
+        except DeviceLoginUnavailable:
+            print("This Station House doesn't do browser sign-in yet, so sign in with your password.")
     email = normalize_email(args.email or input("Station House email: "))
     password = getpass.getpass("Password: ")
     creds = login(email, password)
     print(f"Signed in as {creds['email']}.")
 
 
+def _show_device_code(code, open_browser=True):
+    user_code = code["user_code"]
+    shown = f"{user_code[:4]}-{user_code[4:]}" if len(user_code) == 8 else user_code
+    url = code.get("verification_uri_complete") or code["verification_uri"]
+    print("To sign in, open this page in a browser where you're signed in to Station House:\n"
+          f"\n    {url}\n\n"
+          f"and check it shows the code {shown}. Then approve it.")
+    if open_browser and sys.stdout.isatty():
+        with contextlib.suppress(webbrowser.Error):
+            webbrowser.open(url)
+    print("Waiting for your approval (Ctrl-C to stop)...", flush=True)
+
+
 def cmd_logout(args):
+    sign_out(load_credentials())
     print("Signed out." if clear_credentials() else "You weren't signed in.")
 
 
@@ -862,7 +887,11 @@ def build_parser():
     ch = project(add("chat", cmd_chat, "talk with the Station House assistant (also `stationhouse` on its own, "
                                        "or just type your question: stationhouse what could I work on?)", aliases=["ask"]))
     ch.add_argument("message", nargs="*", help="ask one question and exit, e.g. what could I work on?")
-    add("login", cmd_login, "sign in with your Station House email").add_argument("--email")
+    lg = add("login", cmd_login, "sign in: approve it in your browser, where you're signed in to Station House")
+    lg.add_argument("--password", action="store_true",
+                    help="sign in with your Station House email and password instead (accounts made before email-code sign-in)")
+    lg.add_argument("--email", help="the email to sign in with by password (implies --password)")
+    lg.add_argument("--no-browser", action="store_true", help="print the approval link without opening a browser")
     add("logout", cmd_logout, "forget the stored session")
     add("whoami", cmd_whoami, "who you are signed in as")
     add("projects", cmd_projects, "the projects you can see (* = the one you're working in)")

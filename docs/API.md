@@ -7,17 +7,28 @@ on a 404.
 
 ## Auth
 
-Sign-in is Cognito SRP against the Station House user pool (the same account as the website), so a
-contributor uses their Station House email and password. Every call sends:
+`stationhouse login` signs in by device authorization (RFC 8628) against the platform's Better Auth,
+under `/api/auth`:
+
+| Call | Body | Answer |
+|---|---|---|
+| `POST /device/code` | `{ client_id: "stationhouse-cli" }` | `{ device_code, user_code, verification_uri, verification_uri_complete, expires_in, interval }`; 404 where the server has no device sign-in |
+| `POST /device/token` (every `interval` s) | `{ grant_type: "urn:ietf:params:oauth:grant-type:device_code", device_code, client_id }` | `{ access_token }` (a session token) once approved at `/device`; else 400 `{ error }`: `authorization_pending`, `slow_down` (+5 s), `access_denied`, `expired_token` |
+| `GET /token` | `Authorization: Bearer <session token>` | `{ token }`: the 15-minute JWT, fetched again when it runs out; 401 once the session has ended |
+| `POST /sign-out` | `Authorization: Bearer <session token>` | ends the session (`stationhouse logout`) |
+
+Where `/device/code` is a 404 (a server still signing in with Cognito), or with `login --password`,
+sign-in is Cognito SRP against the Station House user pool instead, with an email and password.
+
+Every call sends the JWT, or for a Cognito sign-in the access token plus the ID token:
 
 ```
-Authorization: Bearer <Cognito access token>
-x-station-house-id-token: <Cognito ID token>
+Authorization: Bearer <JWT, or Cognito access token>
+x-station-house-id-token: <Cognito ID token>          (Cognito only)
 ```
 
-The platform verifies both against the pool (`withMember`, `verifiedMemberEmail`) and derives the
-member's Hugging Face handle from their verified `HfBinding`. Identity is never read from a body.
-Admin routes use `withAdmin` (Cognito `admins` group).
+The platform verifies them (`MemberTokens`) and derives the member's Hugging Face handle from their
+verified `HfBinding`. Identity is never read from a body. Admin routes need the `admins` group.
 
 ## Routes (all under `/api/v1`, JSON)
 
