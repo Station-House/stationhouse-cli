@@ -11,7 +11,8 @@ from importlib import resources
 from pathlib import Path
 
 from . import __version__, chat, design, explore as explore_mod, gate, inbox, projects, traces, train, wizard, work
-from .auth import AuthError, current_credentials, login, normalize_email
+from .auth import (AuthError, WrongCodeError, current_credentials, login, login_with_email_code, normalize_email,
+                   request_email_code)
 from .client import ApiError, request
 from .store import clear_credentials, load_credentials
 
@@ -38,9 +39,24 @@ def _people_line(p):
 
 def cmd_login(args):
     email = normalize_email(args.email or input("Station House email: "))
-    password = getpass.getpass("Password: ")
-    creds = login(email, password)
+    if args.password:
+        creds = login(email, getpass.getpass("Password: "))
+    else:
+        creds = _login_with_email_code(email)
     print(f"Signed in as {creds['email']}.")
+
+
+def _login_with_email_code(email: str, attempts: int = 3) -> dict:
+    session = request_email_code(email)
+    print(f"If {email} has a Station House account, a sign-in code is on its way there. "
+          "Check spam if you don't see it.")
+    for attempt in range(1, attempts + 1):
+        try:
+            return login_with_email_code(email, session, input("Code: "))
+        except WrongCodeError as e:
+            if attempt == attempts:
+                raise AuthError(f"{e} Run `stationhouse login` for a new one.") from None
+            print(f"{e} Try again.", file=sys.stderr)
 
 
 def cmd_logout(args):
@@ -862,7 +878,9 @@ def build_parser():
     ch = project(add("chat", cmd_chat, "talk with the Station House assistant (also `stationhouse` on its own, "
                                        "or just type your question: stationhouse what could I work on?)", aliases=["ask"]))
     ch.add_argument("message", nargs="*", help="ask one question and exit, e.g. what could I work on?")
-    add("login", cmd_login, "sign in with your Station House email").add_argument("--email")
+    lg = add("login", cmd_login, "sign in with your Station House email: we email you a code")
+    lg.add_argument("--email")
+    lg.add_argument("--password", action="store_true", help="use your account's password instead of an emailed code")
     add("logout", cmd_logout, "forget the stored session")
     add("whoami", cmd_whoami, "who you are signed in as")
     add("projects", cmd_projects, "the projects you can see (* = the one you're working in)")

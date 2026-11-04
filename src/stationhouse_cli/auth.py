@@ -16,6 +16,10 @@ class AuthError(Exception):
     pass
 
 
+class WrongCodeError(AuthError):
+    """The emailed code didn't match, and the sign-in can be tried again."""
+
+
 def normalize_email(email: str) -> str:
     email = (email or "").strip().lower()
     if not EMAIL_PATTERN.match(email):
@@ -52,7 +56,8 @@ def login(email: str, password: str) -> dict:
     except Exception as e:  # botocore ClientError: wrong password, unconfirmed account, unknown user
         code = getattr(e, "response", {}).get("Error", {}).get("Code", "")
         if code in ("NotAuthorizedException", "UserNotFoundException"):
-            raise AuthError("Wrong email or password.") from None
+            raise AuthError("Wrong email or password. Accounts don't always have a password: "
+                            "`stationhouse login` emails you a code instead.") from None
         if code == "UserNotConfirmedException":
             raise AuthError("This account's email isn't confirmed yet. Confirm it on the Station House website.") from None
         raise AuthError(f"Couldn't sign in: {code or type(e).__name__}") from None
@@ -67,6 +72,60 @@ def _cognito_post(target: str, body: dict) -> dict:
         headers={"Content-Type": "application/x-amz-json-1.1", "X-Amz-Target": f"AWSCognitoIdentityProviderService.{target}"})
     with urllib.request.urlopen(req, timeout=30) as r:
         return json.loads(r.read())
+
+
+def _sign_in_post(target: str, body: dict) -> dict:
+    """_cognito_post for the email-code steps: failures come back as AuthError, named by Cognito's error code."""
+    try:
+        return _cognito_post(target, {"ClientId": config.CLIENT_ID, **body})
+    except urllib.error.HTTPError as e:
+        try:
+            code = str(json.loads(e.read()).get("__type", "")).split("#")[-1]
+        except ValueError:
+            code = ""
+        if code == "CodeMismatchException":
+            raise WrongCodeError("That code isn't right.") from None
+        if code in ("NotAuthorizedException", "ExpiredCodeException"):
+            raise AuthError("That code has expired or the sign-in has timed out. "
+                            "Run `stationhouse login` for a new one.") from None
+        if code == "UserNotConfirmedException":
+            raise AuthError("This account's email isn't confirmed yet. Confirm it on the Station House website.") from None
+        if code in ("LimitExceededException", "TooManyRequestsException"):
+            raise AuthError("Too many sign-in attempts. Wait a few minutes and try again.") from None
+        raise AuthError(f"Couldn't sign in: {code or e.code}") from None
+    except (urllib.error.URLError, ValueError) as e:
+        raise AuthError(f"Couldn't reach the sign-in service: {e!r}") from None
+
+
+def request_email_code(email: str) -> str:
+    """Email a sign-in code to an existing account, as the website does. Returns the session that confirms it."""
+    email = normalize_email(email)
+    out = _sign_in_post("InitiateAuth", {
+        "AuthFlow": "USER_AUTH", "AuthParameters": {"USERNAME": email, "PREFERRED_CHALLENGE": "EMAIL_OTP"}})
+    # Cognito offers the factors instead when it won't pick the preferred one.
+    if out.get("ChallengeName") == "SELECT_CHALLENGE" and "EMAIL_OTP" in out.get("AvailableChallenges", []):
+        out = _sign_in_post("RespondToAuthChallenge", {
+            "ChallengeName": "SELECT_CHALLENGE", "Session": out["Session"],
+            "ChallengeResponses": {"USERNAME": email, "ANSWER": "EMAIL_OTP"}})
+    if out.get("ChallengeName") != "EMAIL_OTP":
+        raise AuthError("This account can't be sent a sign-in code. Try `stationhouse login --password`.")
+    return out["Session"]
+
+
+def login_with_email_code(email: str, session: str, code: str) -> dict:
+    """Finish request_email_code's sign-in with the code from the email, and store the result."""
+    email = normalize_email(email)
+    code = "".join((code or "").split())
+    if not code:
+        raise WrongCodeError("Enter the code from the email.")
+    out = _sign_in_post("RespondToAuthChallenge", {
+        "ChallengeName": "EMAIL_OTP", "Session": session,
+        "ChallengeResponses": {"USERNAME": email, "EMAIL_OTP_CODE": code}}).get("AuthenticationResult") or {}
+    if not out.get("AccessToken"):
+        raise AuthError("Sign-in didn't finish. Run `stationhouse login` again.")
+    creds = _credentials(email, {"access_token": out["AccessToken"], "id_token": out["IdToken"]}, out["RefreshToken"])
+    save_credentials(creds)
+    return creds
 
 
 def refresh(creds: dict) -> dict:

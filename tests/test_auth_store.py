@@ -1,3 +1,4 @@
+import io
 import json
 import stat
 import time
@@ -39,6 +40,72 @@ def test_normalize_email_rejects_non_emails(bad):
 
 def test_normalize_email_lowercases_and_trims():
     assert auth.normalize_email("  Laura@Example.COM ") == "laura@example.com"
+
+
+def _cognito_failure(code):
+    return urllib.error.HTTPError("https://cognito", 400, "Bad Request", {},
+                                  io.BytesIO(json.dumps({"__type": code, "message": "no"}).encode()))
+
+
+def test_email_code_sign_in_asks_for_email_otp_and_stores_the_tokens(monkeypatch):
+    calls = []
+    answers = iter([
+        {"ChallengeName": "EMAIL_OTP", "Session": "s1"},
+        {"AuthenticationResult": {"AccessToken": jwt(12345), "IdToken": "id", "RefreshToken": "ref"}},
+    ])
+    monkeypatch.setattr(auth, "_cognito_post", lambda target, body: calls.append((target, body)) or next(answers))
+
+    session = auth.request_email_code("Laura@Example.com")
+    creds = auth.login_with_email_code("Laura@Example.com", session, " 1234 5678\n")
+
+    assert calls[0] == ("InitiateAuth", {
+        "ClientId": config.CLIENT_ID, "AuthFlow": "USER_AUTH",
+        "AuthParameters": {"USERNAME": "laura@example.com", "PREFERRED_CHALLENGE": "EMAIL_OTP"}})
+    assert calls[1] == ("RespondToAuthChallenge", {
+        "ClientId": config.CLIENT_ID, "ChallengeName": "EMAIL_OTP", "Session": "s1",
+        "ChallengeResponses": {"USERNAME": "laura@example.com", "EMAIL_OTP_CODE": "12345678"}})
+    assert creds["expires_at"] == 12345 and load_credentials() == creds
+
+
+def test_email_code_is_chosen_when_cognito_offers_the_factors(monkeypatch):
+    calls = []
+    answers = iter([
+        {"ChallengeName": "SELECT_CHALLENGE", "Session": "s1", "AvailableChallenges": ["PASSWORD_SRP", "EMAIL_OTP"]},
+        {"ChallengeName": "EMAIL_OTP", "Session": "s2"},
+    ])
+    monkeypatch.setattr(auth, "_cognito_post", lambda target, body: calls.append(body) or next(answers))
+    assert auth.request_email_code("a@b.co") == "s2"
+    assert calls[1]["ChallengeResponses"] == {"USERNAME": "a@b.co", "ANSWER": "EMAIL_OTP"}
+
+
+def test_account_that_cannot_get_a_code_is_pointed_at_password(monkeypatch):
+    monkeypatch.setattr(auth, "_cognito_post", lambda target, body: {
+        "ChallengeName": "SELECT_CHALLENGE", "Session": "s1", "AvailableChallenges": ["PASSWORD_SRP"]})
+    with pytest.raises(auth.AuthError, match="--password"):
+        auth.request_email_code("a@b.co")
+
+
+@pytest.mark.parametrize("code,error,message", [
+    ("CodeMismatchException", auth.WrongCodeError, "isn't right"),
+    ("ExpiredCodeException", auth.AuthError, "for a new one"),
+    ("NotAuthorizedException", auth.AuthError, "for a new one"),
+    ("UserNotConfirmedException", auth.AuthError, "isn't confirmed"),
+    ("LimitExceededException", auth.AuthError, "Too many"),
+    ("InternalErrorException", auth.AuthError, "InternalErrorException"),
+])
+def test_cognito_errors_on_the_code_become_plain_messages(monkeypatch, code, error, message):
+    def fail(target, body):
+        raise _cognito_failure(code)
+    monkeypatch.setattr(auth, "_cognito_post", fail)
+    with pytest.raises(error, match=message):
+        auth.login_with_email_code("a@b.co", "s1", "12345678")
+    assert load_credentials() is None
+
+
+def test_empty_code_is_a_retry_and_never_calls_cognito(monkeypatch):
+    monkeypatch.setattr(auth, "_cognito_post", lambda target, body: pytest.fail("called Cognito"))
+    with pytest.raises(auth.WrongCodeError):
+        auth.login_with_email_code("a@b.co", "s1", "  ")
 
 
 def test_expiry_read_from_token_and_garbage_is_expired():
