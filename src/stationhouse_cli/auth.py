@@ -108,7 +108,10 @@ def request_email_code(email: str) -> str:
             "ChallengeName": "SELECT_CHALLENGE", "Session": out["Session"],
             "ChallengeResponses": {"USERNAME": email, "ANSWER": "EMAIL_OTP"}})
     if out.get("ChallengeName") != "EMAIL_OTP":
-        raise AuthError("This account can't be sent a sign-in code. Try `stationhouse login --password`.")
+        # Also what Cognito answers for an email with no account, without saying so.
+        raise AuthError(f"Couldn't send a sign-in code to {email}. If you haven't joined yet, join at "
+                        f"{config.DEFAULT_API_URL}/login. If your account has a password, try "
+                        "`stationhouse login --password`.")
     return out["Session"]
 
 

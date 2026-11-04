@@ -78,10 +78,11 @@ def test_email_code_is_chosen_when_cognito_offers_the_factors(monkeypatch):
     assert calls[1]["ChallengeResponses"] == {"USERNAME": "a@b.co", "ANSWER": "EMAIL_OTP"}
 
 
-def test_account_that_cannot_get_a_code_is_pointed_at_password(monkeypatch):
+def test_email_with_no_code_factor_is_pointed_at_joining_and_password(monkeypatch):
+    # Cognito's real answer for an email with no account (checked against the live pool).
     monkeypatch.setattr(auth, "_cognito_post", lambda target, body: {
-        "ChallengeName": "SELECT_CHALLENGE", "Session": "s1", "AvailableChallenges": ["PASSWORD_SRP"]})
-    with pytest.raises(auth.AuthError, match="--password"):
+        "ChallengeName": "SELECT_CHALLENGE", "Session": "s1", "AvailableChallenges": ["PASSWORD_SRP", "PASSWORD"]})
+    with pytest.raises(auth.AuthError, match="join at .*--password"):
         auth.request_email_code("a@b.co")
 
 

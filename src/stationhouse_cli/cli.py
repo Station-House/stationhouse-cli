@@ -48,8 +48,7 @@ def cmd_login(args):
 
 def _login_with_email_code(email: str, attempts: int = 3) -> dict:
     session = request_email_code(email)
-    print(f"If {email} has a Station House account, a sign-in code is on its way there. "
-          "Check spam if you don't see it.")
+    print(f"We emailed a sign-in code to {email}. Check spam if you don't see it.")
     for attempt in range(1, attempts + 1):
         try:
             return login_with_email_code(email, session, input("Code: "))
