@@ -147,10 +147,48 @@ def test_login_stores_credentials_and_never_prints_the_password(monkeypatch, cap
         {"email": e, "access_token": "a", "id_token": "i", "refresh_token": "r", "expires_at": 1}) or
         {"email": e})
     monkeypatch.setattr("getpass.getpass", lambda prompt="": "Sup3r-Secret!")
-    code, out, err = run(capsys, "login", "--email", "Laura@Example.com")
+    code, out, err = run(capsys, "login", "--email", "Laura@Example.com", "--password")
     assert code == 0 and "laura@example.com" in out
     assert "Sup3r-Secret!" not in out + err
     assert load_credentials()["email"] == "laura@example.com"
+
+
+def _email_code_login(monkeypatch, typed, expected="12345678"):
+    """`login` against a stand-in for the code steps; returns the codes it was given."""
+    from stationhouse_cli import auth, cli as climod
+    tried = []
+
+    def confirm(email, session, code):
+        assert session == "sess"
+        tried.append(code)
+        if code != expected:
+            raise auth.WrongCodeError("That code isn't right.")
+        return {"email": email}
+    monkeypatch.setattr(climod, "request_email_code", lambda e: "sess")
+    monkeypatch.setattr(climod, "login_with_email_code", confirm)
+    answers = iter(typed)
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(answers))
+    monkeypatch.setattr("getpass.getpass", lambda prompt="": (_ for _ in ()).throw(AssertionError("asked for a password")))
+    return tried
+
+
+def test_login_signs_in_with_an_emailed_code_and_no_password(monkeypatch, capsys):
+    tried = _email_code_login(monkeypatch, ["12345678"])
+    code, out, _ = run(capsys, "login", "--email", "Laura@Example.com")
+    assert code == 0 and tried == ["12345678"]
+    assert "sign-in code" in out and "Signed in as laura@example.com" in out
+
+
+def test_login_lets_a_mistyped_code_be_retried(monkeypatch, capsys):
+    tried = _email_code_login(monkeypatch, ["00000000", "12345678"])
+    code, out, err = run(capsys, "login", "--email", "laura@example.com")
+    assert code == 0 and "Try again" in err and "Signed in" in out and len(tried) == 2
+
+
+def test_login_gives_up_after_three_wrong_codes(monkeypatch, capsys):
+    tried = _email_code_login(monkeypatch, ["1", "2", "3", "12345678"])
+    code, _, err = run(capsys, "login", "--email", "laura@example.com")
+    assert code == 1 and tried == ["1", "2", "3"] and "for a new one" in err
 
 
 def test_login_rejects_non_email_without_prompting(monkeypatch, capsys):

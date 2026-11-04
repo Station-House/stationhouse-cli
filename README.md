@@ -1,8 +1,8 @@
 # stationhouse-cli
 
 Station House from the terminal: see who is working on what, find unclaimed work, and claim it.
-Many people can be on one task. You sign in with your Station House account (the email and password
-you use on the website); there is no separate token to manage.
+Many people can be on one task. You sign in with your Station House account: enter your email and the code we send to
+it, as on the website. You don't need a password, and there is no separate token to manage.
 
 Two ways in:
 
@@ -26,7 +26,7 @@ use it. Thank you to the Open Athena team for it.
 
 ```bash
 uv tool install git+https://github.com/Station-House/stationhouse-cli   # or: pip install .
-stationhouse login            # your Station House email + password
+stationhouse login            # your Station House email, then the code we email you
 stationhouse projects         # the projects you can see
 stationhouse project use <id> # the one you work in (skip it if there's only one)
 stationhouse unclaimed        # open tasks nobody is on
@@ -180,14 +180,20 @@ Then ask your agent "what should I work on?" It runs `find-work --json`, reads t
 reasons, and suggests a task. It claims only after you agree. The skill keeps your agent on the
 fact-returning commands rather than the platform's assistant: your agent is already the one doing
 the thinking, and `explore` is a plain lookup with no model in it. **You sign in yourself**: the
-skill tells the agent to ask you to run `stationhouse login` and never to handle your password.
+skill tells the agent to ask you to run `stationhouse login` and never to handle your sign-in code
+or password.
 
 ## How sign-in works
 
-- `login` does a Cognito SRP sign-in to the Station House user pool, so the password is proven, not
-  sent. Only your email and password work: the CLI has no other way in.
+- `login` emails a one-time code to your Station House email, the same sign-in as the website's, and
+  you type it in. It works for every account, including ones that never set a password. Your
+  Hugging Face and GitHub links on the website only credit your work; you don't sign in with them.
+- `login --password` uses your account's password instead, by a Cognito SRP sign-in to the Station
+  House user pool, so the password is proven, not sent. To set or change a password, on the
+  [login page](https://app.station-house.net/login) choose "Use a password instead", then "Forgot
+  password?".
 - The session is stored in `~/.config/stationhouse/credentials.json` (mode 0600): your email and
-  tokens, never your password. The access token refreshes itself; `stationhouse logout` deletes the
+  tokens, never your code or password. The access token refreshes itself; `stationhouse logout` deletes the
   file.
 - Every API call carries your Cognito tokens. The platform works out who you are from them, and
   your Hugging Face handle from the one you verified on the website, so nobody can claim as someone

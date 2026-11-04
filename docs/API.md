@@ -7,8 +7,8 @@ on a 404.
 
 ## Auth
 
-Sign-in is Cognito SRP against the Station House user pool (the same account as the website), so a
-contributor uses their Station House email and password. Every call sends:
+Sign-in is against the Station House Cognito user pool (the same account as the website): an emailed
+code (`USER_AUTH` with `EMAIL_OTP`) by default, or SRP with `login --password`. Every call sends:
 
 ```
 Authorization: Bearer <Cognito access token>

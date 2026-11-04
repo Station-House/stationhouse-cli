@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Station House from the terminal: see who is working on what, find and claim work, propose subtasks and tasks, and ask questions about the task tree. Signs in with your Station House account."
 requires-python = ">=3.10"
 dependencies = [
-    "pycognito",   # SRP sign-in to the Station House Cognito pool (the password never leaves the machine)
+    "pycognito",   # `login --password`: SRP sign-in to the Station House Cognito pool (the password never leaves the machine)
 ]
 
 [project.optional-dependencies]
