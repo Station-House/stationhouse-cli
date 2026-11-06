@@ -15,8 +15,10 @@ who type questions straight into their terminal; you don't use it, because here 
 ## Signing in
 
 Run `stationhouse whoami` first. If it says you aren't signed in, **stop and ask the human to
-run `stationhouse login` themselves** (it asks for their Station House email, then the code it emails them).
-Never ask for, type, or store their sign-in code or password, and never try to sign in on their behalf.
+run `stationhouse login` themselves** (it shows a code they type in and approve in their browser;
+with `--email` or `--password`, it asks for a code from their email or their password). Never open
+the sign-in page, never type or approve the code there, never ask for, type, or store a sign-in code
+or password, and never try to sign in on their behalf.
 
 ## Commands
 

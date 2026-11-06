@@ -11,6 +11,19 @@ from .store import load_credentials, save_credentials
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 REFRESH_MARGIN_SECONDS = 120
 
+# The device sign-in (RFC 8628) against the platform's Better Auth: the CLI's client id there, and
+# the grant it polls with.
+DEVICE_CLIENT_ID = "stationhouse-cli"
+DEVICE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code"
+# What RFC 8628 says to add to the polling interval when the server answers slow_down.
+SLOW_DOWN_SECONDS = 5
+TIMEOUT = 30
+
+# Which service a stored session came from. Credentials written before the device sign-in have no
+# "provider" and are Cognito's.
+COGNITO = "cognito"
+BETTER_AUTH = "better-auth"
+
 
 class AuthError(Exception):
     pass
@@ -20,6 +33,10 @@ class WrongCodeError(AuthError):
     """The emailed code didn't match, and the sign-in can be tried again."""
 
 
+class DeviceLoginUnavailable(Exception):
+    """The platform has no device sign-in (it still signs in with Cognito): use a Cognito sign-in."""
+
+
 def normalize_email(email: str) -> str:
     email = (email or "").strip().lower()
     if not EMAIL_PATTERN.match(email):
@@ -27,13 +44,22 @@ def normalize_email(email: str) -> str:
     return email
 
 
-def _expiry(access_token: str) -> float:
-    """The access token's `exp`, read only to schedule a refresh. The platform verifies the token itself."""
+def _claims(token: str) -> dict:
+    """A JWT's payload, unverified: read only for its expiry and email. The platform verifies the token itself."""
     try:
-        payload = access_token.split(".")[1]
+        payload = token.split(".")[1]
         payload += "=" * (-len(payload) % 4)
-        return float(json.loads(base64.urlsafe_b64decode(payload))["exp"])
-    except (IndexError, ValueError, KeyError, TypeError):
+        claims = json.loads(base64.urlsafe_b64decode(payload))
+    except (IndexError, ValueError, TypeError):
+        return {}
+    return claims if isinstance(claims, dict) else {}
+
+
+def _expiry(access_token: str) -> float:
+    """The access token's `exp`, read only to schedule a refresh."""
+    try:
+        return float(_claims(access_token)["exp"])
+    except (KeyError, ValueError, TypeError):
         return 0.0
 
 
@@ -42,8 +68,111 @@ def _credentials(email: str, tokens: dict, refresh_token: str) -> dict:
             "refresh_token": refresh_token, "expires_at": _expiry(tokens["access_token"])}
 
 
+def _better_auth_credentials(session_token: str, jwt: str, email: str | None = None) -> dict:
+    """The same file as Cognito's, so older CLIs still read it: the platform's 15-minute JWT is the
+    access token, and the session it was traded for (good for 30 days, renewed as it's used) stands in
+    for the refresh token. There's no ID token: the JWT carries the verified email itself."""
+    return {"provider": BETTER_AUTH, "email": _claims(jwt).get("email") or email or "",
+            "access_token": jwt, "id_token": "", "refresh_token": session_token, "expires_at": _expiry(jwt)}
+
+
+def _auth_call(method: str, path: str, body: dict | None = None, bearer: str | None = None) -> tuple[int, dict]:
+    """One call to the platform's /api/auth: its status and JSON body ({} when it has none)."""
+    headers = {"Content-Type": "application/json", "Accept": "application/json",
+               "User-Agent": config.user_agent()}
+    if bearer:
+        headers["Authorization"] = f"Bearer {bearer}"
+    req = urllib.request.Request(config.api_url() + "/api/auth" + path, method=method, headers=headers,
+                                 data=None if body is None else json.dumps(body).encode())
+    try:
+        with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
+            status, raw = r.status, r.read()
+    except urllib.error.HTTPError as e:
+        status, raw = e.code, e.read()
+    except urllib.error.URLError as e:
+        raise AuthError(f"Couldn't reach {config.api_url()}: {e.reason}") from None
+    try:
+        out = json.loads(raw or b"{}")
+    except ValueError:
+        out = {}
+    return status, out if isinstance(out, dict) else {}
+
+
+def start_device_login() -> dict:
+    """Asks the platform for a sign-in code: {device_code, user_code, verification_uri,
+    verification_uri_complete, expires_in, interval}. DeviceLoginUnavailable when it has no device
+    sign-in yet. Only verification_uri is shown: the member types the code there themselves (the page
+    ignores a code in the link, against device-code phishing)."""
+    status, out = _auth_call("POST", "/device/code", {"client_id": DEVICE_CLIENT_ID})
+    if status == 404:
+        raise DeviceLoginUnavailable()
+    if status != 200 or not out.get("device_code") or not out.get("user_code"):
+        raise AuthError(f"Couldn't start signing in: {out.get('error_description') or f'the server answered {status}'}.")
+    return out
+
+
+def wait_for_device_login(code: dict) -> str:
+    """Polls until the member approves or denies the code in the browser, or it expires. Returns the
+    session token the platform hands over on approval."""
+    sleep, clock = time.sleep, time.monotonic
+    interval = max(int(code.get("interval") or 5), 1)
+    deadline = clock() + int(code.get("expires_in") or 600)
+    while True:
+        sleep(interval)
+        status, out = _auth_call("POST", "/device/token", {
+            "grant_type": DEVICE_GRANT_TYPE, "device_code": code["device_code"], "client_id": DEVICE_CLIENT_ID})
+        if status == 200 and out.get("access_token"):
+            return out["access_token"]
+        error = out.get("error")
+        if error == "authorization_pending" and clock() < deadline:
+            continue
+        if error == "slow_down" and clock() < deadline:
+            interval += SLOW_DOWN_SECONDS
+            continue
+        if error == "access_denied":
+            raise AuthError("The sign-in was denied in the browser.")
+        if error in ("expired_token", "authorization_pending", "slow_down"):
+            raise AuthError("The code expired before it was approved. Run `stationhouse login` again.")
+        raise AuthError(f"Couldn't sign in: {out.get('error_description') or error or f'the server answered {status}'}.")
+
+
+def _better_auth_jwt(session_token: str) -> str:
+    """Trades the session for a fresh 15-minute JWT, the token every API call carries."""
+    status, out = _auth_call("GET", "/token", bearer=session_token)
+    if status == 401:
+        raise AuthError("Your session has expired. Run `stationhouse login`.")
+    if status == 403:  # e.g. the account was disabled: the platform says why
+        raise AuthError(out.get("message") or "Station House refused to sign you in.")
+    if status != 200 or not out.get("token"):
+        raise AuthError(f"Couldn't refresh your session: the server answered {status}.")
+    return out["token"]
+
+
+def device_login(show_code) -> dict:
+    """Signs in by device authorization and stores the result: `show_code(code)` tells the member
+    where to approve it. DeviceLoginUnavailable when the platform can't do it yet."""
+    code = start_device_login()
+    show_code(code)
+    session_token = wait_for_device_login(code)
+    creds = _better_auth_credentials(session_token, _better_auth_jwt(session_token))
+    save_credentials(creds)
+    return creds
+
+
+def sign_out(creds: dict | None) -> None:
+    """Ends a device sign-in's session on the platform as well, so the stored token is dead even if the
+    file survives somewhere. Best effort: signing out locally never waits on the network."""
+    if not creds or creds.get("provider") != BETTER_AUTH:
+        return
+    try:
+        _auth_call("POST", "/sign-out", {}, bearer=creds["refresh_token"])
+    except AuthError:
+        pass
+
+
 def login(email: str, password: str) -> dict:
-    """Sign in to the Station House Cognito pool with SRP (the password is never sent) and store the result."""
+    """Sign in to the Station House Cognito pool with SRP (the password is never sent) and store the
+    result. For members who joined before the device sign-in, until Cognito is switched off."""
     email = normalize_email(email)
     from pycognito import Cognito
     from pycognito.exceptions import ForceChangePasswordException
@@ -98,7 +227,8 @@ def _sign_in_post(target: str, body: dict) -> dict:
 
 
 def request_email_code(email: str) -> str:
-    """Email a sign-in code to an existing account, as the website does. Returns the session that confirms it."""
+    """Email a sign-in code to an existing Cognito account, as the website did before Better Auth. Returns the
+    session that confirms it. For members who joined before the device sign-in, until Cognito is switched off."""
     email = normalize_email(email)
     out = _sign_in_post("InitiateAuth", {
         "AuthFlow": "USER_AUTH", "AuthParameters": {"USERNAME": email, "PREFERRED_CHALLENGE": "EMAIL_OTP"}})
@@ -109,7 +239,8 @@ def request_email_code(email: str) -> str:
             "ChallengeResponses": {"USERNAME": email, "ANSWER": "EMAIL_OTP"}})
     if out.get("ChallengeName") != "EMAIL_OTP":
         # Also what Cognito answers for an email with no account, without saying so.
-        raise AuthError(f"Couldn't send a sign-in code to {email}. If you haven't joined yet, join at "
+        raise AuthError(f"Couldn't send a sign-in code to {email}. If you joined recently, run `stationhouse login` "
+                        "on its own and approve it in your browser. If you haven't joined yet, join at "
                         f"{config.DEFAULT_API_URL}/login. If your account has a password, try "
                         "`stationhouse login --password`.")
     return out["Session"]
@@ -132,6 +263,10 @@ def login_with_email_code(email: str, session: str, code: str) -> dict:
 
 
 def refresh(creds: dict) -> dict:
+    if creds.get("provider") == BETTER_AUTH:
+        new = _better_auth_credentials(creds["refresh_token"], _better_auth_jwt(creds["refresh_token"]), creds["email"])
+        save_credentials(new)
+        return new
     try:
         out = _cognito_post("InitiateAuth", {
             "AuthFlow": "REFRESH_TOKEN_AUTH", "ClientId": config.CLIENT_ID,
