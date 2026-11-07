@@ -4,7 +4,7 @@ import urllib.parse
 import urllib.request
 
 from . import config
-from .auth import current_credentials
+from .auth import current_credentials, secure_platform_url
 
 # Seconds per call; the push gate lowers it so a slow platform can't stall a push.
 TIMEOUT = 60
@@ -24,7 +24,7 @@ def request(method: str, path: str, body: dict | None = None, query: dict | None
     Cognito sign-in, the ID token lets the platform read the member's verified email (the device
     sign-in's token carries it itself). Identity is never taken from the body."""
     creds = current_credentials()
-    url = config.api_url() + path + ("?" + urllib.parse.urlencode(query) if query else "")
+    url = secure_platform_url(config.api_url()) + path + ("?" + urllib.parse.urlencode(query) if query else "")
     headers = {"Authorization": f"Bearer {creds['access_token']}",
                "Content-Type": "application/json", "User-Agent": config.user_agent()}
     if creds["id_token"]:
@@ -43,6 +43,8 @@ def request(method: str, path: str, body: dict | None = None, query: dict | None
         raise ApiError(_message(e.code, body), e.code, body) from None
     except urllib.error.URLError as e:
         raise ApiError(f"Couldn't reach {config.api_url()}: {e.reason}") from None
+    except TimeoutError:  # the answer didn't come in time (a connect timeout is a URLError, above)
+        raise ApiError(f"{config.api_url()} didn't answer in time. Try again.") from None
 
 
 def _message(code: int, body: dict) -> str:

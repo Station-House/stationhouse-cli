@@ -220,4 +220,6 @@ tests run the CLI against a fake server.
 uv venv && uv pip install -e '.[dev]' && .venv/bin/python -m pytest
 ```
 
-Set `STATIONHOUSE_API_URL` to point at another server (default `https://app.station-house.net`).
+Set `STATIONHOUSE_API_URL` to point at another server (default `https://app.station-house.net`). It must be
+https, except on localhost. A browser-approved sign-in only works with the server that issued it: after
+pointing at another one, run `stationhouse login` again.

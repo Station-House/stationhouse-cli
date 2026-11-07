@@ -11,9 +11,9 @@ from datetime import datetime
 from importlib import resources
 from pathlib import Path
 
-from . import __version__, chat, design, explore as explore_mod, gate, inbox, projects, traces, train, wizard, work
-from .auth import (AuthError, DeviceLoginUnavailable, WrongCodeError, current_credentials, device_login, login,
-                   login_with_email_code, normalize_email, request_email_code, sign_out)
+from . import __version__, chat, config, design, explore as explore_mod, gate, inbox, projects, traces, train, wizard, work
+from .auth import (AuthError, DeviceLoginUnavailable, WrongCodeError, current_credentials, device_login,
+                   is_platform_page, login, login_with_email_code, normalize_email, request_email_code, sign_out)
 from .client import ApiError, request
 from .store import clear_credentials, load_credentials
 
@@ -79,14 +79,20 @@ def _show_device_code(code, open_browser=True):
           f"\n    {url}\n\n"
           f"and enter this code:\n\n    {shown}\n\n"
           "Then check where the page says the request came from, and approve it.")
-    if open_browser and sys.stdout.isatty():
+    if not is_platform_page(url):
+        # Only a page on the platform the CLI signs in to, over https, is opened (or worth trusting).
+        print(f"Careful: that page isn't on {config.api_url()}, so it wasn't opened. Approve the sign-in only on "
+              f"{config.api_url()}/device.", file=sys.stderr)
+    elif open_browser and sys.stdout.isatty():
         with contextlib.suppress(webbrowser.Error):
             webbrowser.open(url)
     print("Waiting for your approval (Ctrl-C to stop)...", flush=True)
 
 
 def cmd_logout(args):
-    sign_out(load_credentials())
+    note = sign_out(load_credentials())
+    if note:
+        print(note, file=sys.stderr)
     print("Signed out." if clear_credentials() else "You weren't signed in.")
 
 
@@ -1075,6 +1081,10 @@ def main(argv=None, questions=True):
         code = args.fn(args)
     except (AuthError, ApiError) as e:
         print(f"error: {e}", file=sys.stderr)
+        return 1
+    except TimeoutError:
+        # A call that got no answer in time, wherever it was made: say so, don't dump a traceback.
+        print("error: Station House didn't answer in time. Check your connection and try again.", file=sys.stderr)
         return 1
     except EOFError:
         # No terminal to read from (a piped or background shell): say so, don't dump a traceback.
