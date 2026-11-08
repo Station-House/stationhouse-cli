@@ -1,6 +1,8 @@
 import base64
+import http.client
 import json
 import re
+import ssl
 import time
 import urllib.error
 import urllib.parse
@@ -23,6 +25,9 @@ MAX_RETRY_SECONDS = 60
 TIMEOUT = 30
 # Plain http is only for a platform on this machine (local development).
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
+# A call that never got a whole answer, past what urllib wraps in URLError: a read that timed out, a
+# connection dropped or cut short mid-answer, TLS failing mid-stream.
+NETWORK_ERRORS = (TimeoutError, ConnectionError, http.client.HTTPException, ssl.SSLError)
 
 # Which service a stored session came from. Credentials written before the device sign-in have no
 # "provider" and are Cognito's.
@@ -42,6 +47,11 @@ class PlatformUnreachable(AuthError):
     """The platform didn't answer (no network, a timeout, a dropped connection): worth another try."""
 
 
+class RedirectRefused(AuthError):
+    """The platform answered with a redirect to another server: the CLI doesn't follow it with the
+    member's token."""
+
+
 class DeviceLoginUnavailable(Exception):
     """The platform has no device sign-in (it still signs in with Cognito): use a Cognito sign-in."""
 
@@ -53,6 +63,32 @@ def secure_platform_url(url: str) -> str:
         return url
     raise AuthError(f"{url} isn't https. Station House signs in only over https "
                     "(plain http only for localhost). Check STATIONHOUSE_API_URL.")
+
+
+def _origin(url: str) -> tuple:
+    parts = urllib.parse.urlsplit(url)
+    return parts.scheme.lower(), parts.hostname, parts.port or {"http": 80, "https": 443}.get(parts.scheme.lower())
+
+
+class _SameOriginRedirects(urllib.request.HTTPRedirectHandler):
+    """urllib's redirects copy every header, the Authorization with the member's token included, to
+    wherever Location points. Only a redirect within the same scheme, host and port is followed."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if _origin(newurl) != _origin(req.full_url):
+            fp.close()
+            to = urllib.parse.urlsplit(newurl)
+            raise RedirectRefused(f"{config.api_url()} redirected to {to.scheme}://{to.netloc}, another server. "
+                                  "The CLI doesn't send your sign-in there. Check STATIONHOUSE_API_URL.")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+_OPENER = urllib.request.build_opener(_SameOriginRedirects)
+
+
+def open_url(req: urllib.request.Request, timeout: float):
+    """urlopen for every call that carries a token: a redirect to another server is RedirectRefused."""
+    return _OPENER.open(req, timeout=timeout)
 
 
 def is_platform_page(url: str) -> bool:
@@ -128,13 +164,14 @@ def _auth_call(method: str, path: str, body: dict | None = None, bearer: str | N
     req = urllib.request.Request(base + "/api/auth" + path, method=method, headers=headers,
                                  data=None if body is None else json.dumps(body).encode())
     try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
-            status, raw = r.status, r.read()
-    except urllib.error.HTTPError as e:
-        status, raw = e.code, e.read()
+        try:
+            with open_url(req, TIMEOUT) as r:
+                status, raw = r.status, r.read()
+        except urllib.error.HTTPError as e:
+            status, raw = e.code, e.read()
     except urllib.error.URLError as e:
         raise PlatformUnreachable(f"Couldn't reach {base}: {e.reason}") from None
-    except (TimeoutError, ConnectionError) as e:  # a read that timed out, a connection dropped mid-answer
+    except NETWORK_ERRORS as e:
         raise PlatformUnreachable(f"Couldn't reach {base}: {e or type(e).__name__}") from None
     try:
         out = json.loads(raw or b"{}")
@@ -169,9 +206,11 @@ def wait_for_device_login(code: dict) -> str:
         try:
             status, out = _auth_call("POST", "/device/token", {
                 "grant_type": DEVICE_GRANT_TYPE, "device_code": code["device_code"], "client_id": DEVICE_CLIENT_ID})
+            if status >= 500 and not out.get("error"):  # a gateway or a restart (502, 503, 504), not an answer
+                raise PlatformUnreachable(f"{config.api_url()} answered {status}")
         except PlatformUnreachable as e:
             if clock() >= deadline:
-                raise AuthError(f"{e}. The code ran out while the connection was down: "
+                raise AuthError(f"{e}. The code ran out while Station House couldn't be reached: "
                                 "run `stationhouse login` again.") from None
             wait = min(wait * 2, MAX_RETRY_SECONDS)
             continue

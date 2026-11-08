@@ -2,9 +2,11 @@ import argparse
 import contextlib
 import difflib
 import getpass
+import http.client
 import io
 import json
 import shutil
+import ssl
 import sys
 import webbrowser
 from datetime import datetime
@@ -1085,6 +1087,9 @@ def main(argv=None, questions=True):
     except TimeoutError:
         # A call that got no answer in time, wherever it was made: say so, don't dump a traceback.
         print("error: Station House didn't answer in time. Check your connection and try again.", file=sys.stderr)
+        return 1
+    except (ConnectionError, http.client.HTTPException, ssl.SSLError) as e:
+        print(f"error: the connection to Station House failed ({e or type(e).__name__}). Try again.", file=sys.stderr)
         return 1
     except EOFError:
         # No terminal to read from (a piped or background shell): say so, don't dump a traceback.

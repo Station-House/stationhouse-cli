@@ -1,11 +1,13 @@
 """`stationhouse login` by device authorization (RFC 8628) against the platform's Better Auth, the
 emailed-code fallback, and how the CLI keeps, refreshes and ends the session it gets."""
 import base64
+import http.client
 import json
 import re
+import ssl
 import time
-
 import urllib.error
+import urllib.request
 
 import pytest
 
@@ -254,7 +256,7 @@ def test_logout_leaves_another_platforms_session_alone(api, capsys):
 @pytest.mark.parametrize("url", ["http://app.station-house.net", "http://192.168.1.20:8787"])
 def test_plain_http_is_refused_except_on_localhost(url, monkeypatch, capsys, signed_in):
     monkeypatch.setenv("STATIONHOUSE_API_URL", url)
-    monkeypatch.setattr("urllib.request.urlopen", lambda *a, **k: pytest.fail("sent a request over plain http"))
+    monkeypatch.setattr(urllib.request.OpenerDirector, "open", lambda *a, **k: pytest.fail("sent a request over plain http"))
     code, _, err = run(capsys, "login", "--no-browser")
     assert code == 1 and "isn't https" in err
     code, _, err = run(capsys, "whoami")  # an API call with a stored token, too
@@ -268,15 +270,15 @@ def test_https_and_localhost_are_platforms_tokens_may_go_to():
 
 # ---------------------------------------------------------------- polling survives a dropped connection
 
-def flaky(monkeypatch, failures):
-    """urlopen that raises each of `failures` in turn for /device/token, then answers normally."""
-    real, left = urllib.request.urlopen, list(failures)
+def flaky(monkeypatch, failures, path="/api/auth/device/token"):
+    """Every HTTP call (urllib's openers) raises each of `failures` in turn for `path`, then answers normally."""
+    real, left = urllib.request.OpenerDirector.open, list(failures)
 
-    def urlopen(req, *a, **k):
-        if req.full_url.endswith("/api/auth/device/token") and left:
+    def open_(self, req, *a, **k):
+        if req.full_url.endswith(path) and left:
             raise left.pop(0)
-        return real(req, *a, **k)
-    monkeypatch.setattr("urllib.request.urlopen", urlopen)
+        return real(self, req, *a, **k)
+    monkeypatch.setattr(urllib.request.OpenerDirector, "open", open_)
 
 
 def test_keeps_polling_through_a_dropped_connection(api, sleeps, monkeypatch, capsys):
@@ -298,7 +300,7 @@ def test_gives_up_when_the_code_runs_out_while_the_connection_is_down(api, monke
     api.routes[("POST", "/api/auth/device/code")] = (200, device_code(api, expires_in=12))
     flaky(monkeypatch, [urllib.error.URLError("Network is unreachable")] * 10)
     code, _, err = run(capsys, "login")
-    assert code == 1 and "ran out while the connection was down" in err and "stationhouse login" in err
+    assert code == 1 and "ran out while Station House couldn't be reached" in err and "stationhouse login" in err
     assert "Traceback" not in err and load_credentials() is None
 
 
@@ -311,7 +313,7 @@ def test_a_timeout_anywhere_is_a_message_not_a_traceback(monkeypatch, capsys):
 
 
 def test_an_api_call_that_times_out_says_so(api, signed_in, monkeypatch, capsys):
-    monkeypatch.setattr("urllib.request.urlopen", lambda *a, **k: (_ for _ in ()).throw(TimeoutError("timed out")))
+    flaky(monkeypatch, [TimeoutError("timed out")], path="/api/v1/me")
     code, _, err = run(capsys, "whoami")
     assert code == 1 and "didn't answer in time" in err
 
@@ -347,3 +349,113 @@ def test_never_opens_a_sign_in_page_elsewhere(page, monkeypatch, capsys):
     cli._show_device_code({**CODE, "verification_uri": page})
     err = capsys.readouterr().err
     assert opened == [] and "wasn't opened" in err and f"{PROD}/device" in err
+
+
+# ---------------------------------------------------------------- a redirect never carries the token elsewhere
+
+def test_a_refresh_isnt_redirected_to_another_server(api, elsewhere):
+    save_credentials(device_session(0))
+    api.routes[("GET", "/api/auth/token")] = (302, {}, {"Location": f"{elsewhere.url}/api/auth/token"})
+    with pytest.raises(auth.AuthError, match="redirected to .*another server"):
+        auth.current_credentials()
+    assert elsewhere.calls == []  # the 30-day session never left the platform
+
+
+def test_an_api_call_isnt_redirected_to_another_server(api, elsewhere, capsys):
+    save_credentials(device_session(time.time() + 900))
+    api.routes[("GET", "/api/v1/me")] = (307, {}, {"Location": f"{elsewhere.url}/api/v1/me"})
+    code, _, err = run(capsys, "whoami")
+    assert code == 1 and "another server" in err and "Traceback" not in err
+    assert elsewhere.calls == []
+
+
+def test_sign_out_isnt_redirected_to_another_server(api, elsewhere, capsys):
+    save_credentials(device_session(time.time() + 900))
+    api.routes[("POST", "/api/auth/sign-out")] = (303, {}, {"Location": f"{elsewhere.url}/bye"})
+    code, out, _ = run(capsys, "logout")
+    assert code == 0 and "Signed out" in out and load_credentials() is None
+    assert elsewhere.calls == []
+
+
+def test_a_redirect_within_the_platform_is_still_followed(api, capsys):
+    save_credentials(device_session(time.time() + 900))
+    api.routes[("GET", "/api/v1/me")] = (308, {}, {"Location": f"{api.url}/api/v1/me/"})
+    api.routes[("GET", "/api/v1/me/")] = (200, {"hfUsername": "ada"})
+    code, out, _ = run(capsys, "whoami")
+    assert code == 0 and "ada@example.com" in out
+
+
+@pytest.mark.parametrize("to", ["http://app.station-house.net/api/auth/token",       # downgraded to http
+                                "https://app.station-house.net:8443/api/auth/token",  # another port
+                                "https://evil.example/api/auth/token"])                # another host
+def test_only_same_scheme_host_and_port_redirects_are_followed(to, monkeypatch):
+    monkeypatch.setenv("STATIONHOUSE_API_URL", PROD)
+    req = urllib.request.Request(f"{PROD}/api/auth/token", headers={"Authorization": "Bearer session-token"})
+    handler = auth._SameOriginRedirects()
+
+    class Answer:
+        def close(self):
+            pass
+    with pytest.raises(auth.RedirectRefused):
+        handler.redirect_request(req, Answer(), 302, "Found", {}, to)
+    assert handler.redirect_request(req, Answer(), 302, "Found", {}, f"{PROD}/api/auth/token/").full_url \
+        == f"{PROD}/api/auth/token/"
+
+
+# ---------------------------------------------------------------- a 5xx while polling is a blip, not an answer
+
+def test_keeps_polling_through_a_gateway_error(api, sleeps, capsys):
+    api.routes[("POST", "/api/auth/device/code")] = (200, device_code(api))
+    api.routes[("POST", "/api/auth/device/token")] = [(502, {}), (503, {"message": "Service Unavailable"}), PENDING,
+                                                      (200, {"access_token": "session-token"})]
+    api.routes[("GET", "/api/auth/token")] = (200, {"token": platform_jwt(time.time() + 900)})
+    code, out, err = run(capsys, "login")
+    assert code == 0 and "Signed in as ada@example.com." in out and "502" not in err
+    assert sleeps == [5, 10, 20, 5]
+
+
+def test_gives_up_when_the_code_runs_out_while_the_platform_answers_504(api, monkeypatch, capsys):
+    now = [0.0]
+    monkeypatch.setattr(auth.time, "monotonic", lambda: now[0])
+    monkeypatch.setattr(auth.time, "sleep", lambda s: now.__setitem__(0, now[0] + s))
+    api.routes[("POST", "/api/auth/device/code")] = (200, device_code(api, expires_in=12))
+    api.routes[("POST", "/api/auth/device/token")] = (504, {})
+    code, _, err = run(capsys, "login")
+    assert code == 1 and "answered 504" in err and "ran out" in err and "stationhouse login" in err
+    assert len(calls_to(api, "/api/auth/device/token")) == 2  # at 5s, then 15s (the wait doubled)
+
+
+def test_a_5xx_with_an_oauth_error_is_an_answer(api, sleeps, capsys):
+    api.routes[("POST", "/api/auth/device/code")] = (200, device_code(api))
+    api.routes[("POST", "/api/auth/device/token")] = (500, {"error": "server_error", "error_description": "Broken."})
+    code, _, err = run(capsys, "login")
+    assert code == 1 and "Broken." in err
+    assert len(calls_to(api, "/api/auth/device/token")) == 1
+
+
+# ---------------------------------------------------------------- a cut-short answer or TLS failing mid-stream
+
+def test_keeps_polling_through_a_cut_short_answer_or_a_tls_error(api, sleeps, monkeypatch, capsys):
+    api.routes[("POST", "/api/auth/device/code")] = (200, device_code(api))
+    api.routes[("POST", "/api/auth/device/token")] = (200, {"access_token": "session-token"})
+    api.routes[("GET", "/api/auth/token")] = (200, {"token": platform_jwt(time.time() + 900)})
+    flaky(monkeypatch, [http.client.IncompleteRead(b"{"), ssl.SSLError("record layer failure")])
+    code, out, err = run(capsys, "login")
+    assert code == 0 and "Signed in" in out and "Traceback" not in err
+    assert sleeps == [5, 10, 20]
+
+
+@pytest.mark.parametrize("failure", [http.client.IncompleteRead(b"{"), ssl.SSLError("record layer failure"),
+                                     http.client.RemoteDisconnected("closed")])
+def test_an_api_call_cut_short_is_a_message_not_a_traceback(failure, api, signed_in, monkeypatch, capsys):
+    flaky(monkeypatch, [failure], path="/api/v1/me")
+    code, _, err = run(capsys, "whoami")
+    assert code == 1 and "Couldn't reach" in err and "Traceback" not in err
+
+
+def test_a_broken_connection_anywhere_is_a_message_not_a_traceback(monkeypatch, capsys):
+    def breaks(args):
+        raise ssl.SSLError("record layer failure")
+    monkeypatch.setattr(cli, "cmd_whoami", breaks)
+    code, _, err = run(capsys, "whoami")
+    assert code == 1 and "connection to Station House failed" in err
