@@ -247,7 +247,9 @@ def test_an_older_server_without_the_workable_flag_still_works(tree, capsys):
     assert "Do this one: add-question-edge" in out
 
 
-def test_login_with_no_terminal_says_so_instead_of_a_traceback(monkeypatch, capsys):
+def test_login_with_no_terminal_says_so_instead_of_a_traceback(api, monkeypatch, capsys):
+    # The fake platform has no device sign-in (404), so `login` falls back to asking for an email, and
+    # the test never reaches the real platform.
     monkeypatch.setattr("builtins.input", lambda prompt="": (_ for _ in ()).throw(EOFError))
     code, _, err = run(capsys, "login")
     assert code == 1 and "needs a terminal" in err and "Traceback" not in err

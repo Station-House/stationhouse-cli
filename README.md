@@ -1,8 +1,8 @@
 # stationhouse-cli
 
 Station House from the terminal: see who is working on what, find unclaimed work, and claim it.
-Many people can be on one task. You sign in with your Station House account: enter your email and the code we send to
-it, as on the website. You don't need a password, and there is no separate token to manage.
+Many people can be on one task. You sign in with your Station House account, by approving the
+sign-in in your browser. You don't need a password, and there is no separate token to manage.
 
 Two ways in:
 
@@ -26,7 +26,7 @@ use it. Thank you to the Open Athena team for it.
 
 ```bash
 uv tool install git+https://github.com/Station-House/stationhouse-cli   # or: pip install .
-stationhouse login            # your Station House email, then the code we email you
+stationhouse login            # approve it in your browser: no password needed
 stationhouse projects         # the projects you can see
 stationhouse project use <id> # the one you work in (skip it if there's only one)
 stationhouse unclaimed        # open tasks nobody is on
@@ -180,24 +180,34 @@ Then ask your agent "what should I work on?" It runs `find-work --json`, reads t
 reasons, and suggests a task. It claims only after you agree. The skill keeps your agent on the
 fact-returning commands rather than the platform's assistant: your agent is already the one doing
 the thinking, and `explore` is a plain lookup with no model in it. **You sign in yourself**: the
-skill tells the agent to ask you to run `stationhouse login` and never to handle your sign-in code
-or password.
+skill tells the agent to ask you to run `stationhouse login` and never to sign in for you, open or
+approve the sign-in link, or handle your sign-in code or password.
 
 ## How sign-in works
 
-- `login` emails a one-time code to your Station House email, the same sign-in as the website's, and
-  you type it in. It works for every account, including ones that never set a password. Your
-  Hugging Face and GitHub links on the website only credit your work; you don't sign in with them.
-- `login --password` uses your account's password instead, by a Cognito SRP sign-in to the Station
-  House user pool, so the password is proven, not sent. To set or change a password, on the
-  [login page](https://app.station-house.net/login) choose "Use a password instead", then "Forgot
-  password?".
+**You don't need a password.** Most members never had one: they joined with an emailed code, or
+with Google, GitHub or Hugging Face. `stationhouse login` signs you in the same way you sign in on
+the website:
+
+- It shows a code and the link `https://app.station-house.net/device`. Open the link in a browser
+  where you're signed in to Station House and type the code in. The page shows when and from where
+  the request came; if that's your terminal, approve it. The CLI never sees a code from your email or
+  a password. Codes last 10 minutes. In a terminal with a browser the link opens by itself
+  (`--no-browser` just prints it).
+- **Only approve a sign-in you just started yourself.** If someone sends you a code or a link to
+  that page, deny it: approving would sign *their* terminal in as you.
+- Older accounts (made before the website moved its sign-in to Better Auth) can also sign in
+  without the browser, until the platform retires that sign-in:
+  - `login --email you@example.com` emails a one-time code to that address, and you type it in.
+  - `login --password` uses your account's password, if it has one, by a Cognito SRP sign-in, so
+    the password is proven, not sent.
+- A Station House that can't approve sign-ins in the browser yet makes `stationhouse login` say so
+  and email you a code instead.
 - The session is stored in `~/.config/stationhouse/credentials.json` (mode 0600): your email and
-  tokens, never your code or password. The access token refreshes itself; `stationhouse logout` deletes the
-  file.
-- Every API call carries your Cognito tokens. The platform works out who you are from them, and
-  your Hugging Face handle from the one you verified on the website, so nobody can claim as someone
-  else.
+  tokens, never a code or password. The access token refreshes itself. `stationhouse logout` ends the
+  session on the platform and deletes the file.
+- Every API call carries your access token. The platform works out who you are from it, and your
+  Hugging Face handle from the one you verified on the website, so nobody can claim as someone else.
 
 ## Status
 
@@ -210,4 +220,6 @@ tests run the CLI against a fake server.
 uv venv && uv pip install -e '.[dev]' && .venv/bin/python -m pytest
 ```
 
-Set `STATIONHOUSE_API_URL` to point at another server (default `https://app.station-house.net`).
+Set `STATIONHOUSE_API_URL` to point at another server (default `https://app.station-house.net`). It must be
+https, except on localhost. A browser-approved sign-in only works with the server that issued it: after
+pointing at another one, run `stationhouse login` again.

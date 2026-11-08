@@ -3,8 +3,9 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from . import __version__, config
-from .auth import current_credentials
+from . import config
+from . import auth
+from .auth import NETWORK_ERRORS, current_credentials, secure_platform_url
 
 # Seconds per call; the push gate lowers it so a slow platform can't stall a push.
 TIMEOUT = 60
@@ -20,27 +21,34 @@ class ApiError(Exception):
 
 
 def request(method: str, path: str, body: dict | None = None, query: dict | None = None):
-    """Call the Station House API as the signed-in member. The access token authorizes the call; the
-    ID token lets the platform read the member's verified email. Identity is never taken from the body."""
+    """Call the Station House API as the signed-in member. The access token authorizes the call; for a
+    Cognito sign-in, the ID token lets the platform read the member's verified email (the device
+    sign-in's token carries it itself). Identity is never taken from the body."""
     creds = current_credentials()
-    url = config.api_url() + path + ("?" + urllib.parse.urlencode(query) if query else "")
-    req = urllib.request.Request(
-        url, method=method, data=None if body is None else json.dumps(body).encode(),
-        headers={"Authorization": f"Bearer {creds['access_token']}",
-                 "x-station-house-id-token": creds["id_token"],
-                 "Content-Type": "application/json", "User-Agent": f"stationhouse-cli/{__version__}"})
+    url = secure_platform_url(config.api_url()) + path + ("?" + urllib.parse.urlencode(query) if query else "")
+    headers = {"Authorization": f"Bearer {creds['access_token']}",
+               "Content-Type": "application/json", "User-Agent": config.user_agent()}
+    if creds["id_token"]:
+        headers["x-station-house-id-token"] = creds["id_token"]
+    req = urllib.request.Request(url, method=method, data=None if body is None else json.dumps(body).encode(),
+                                 headers=headers)
     try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
-            return json.loads(r.read() or "null")
-    except urllib.error.HTTPError as e:
         try:
-            body = json.loads(e.read())
-        except ValueError:
-            body = None
-        body = body if isinstance(body, dict) else {}
-        raise ApiError(_message(e.code, body), e.code, body) from None
+            with auth.open_url(req, TIMEOUT) as r:  # a redirect to another server isn't followed
+                return json.loads(r.read() or "null")
+        except urllib.error.HTTPError as e:
+            try:
+                body = json.loads(e.read())
+            except ValueError:
+                body = None
+            body = body if isinstance(body, dict) else {}
+            raise ApiError(_message(e.code, body), e.code, body) from None
     except urllib.error.URLError as e:
         raise ApiError(f"Couldn't reach {config.api_url()}: {e.reason}") from None
+    except TimeoutError:  # the answer didn't come in time (a connect timeout is a URLError, above)
+        raise ApiError(f"{config.api_url()} didn't answer in time. Try again.") from None
+    except NETWORK_ERRORS as e:  # cut short mid-answer, TLS failing mid-stream
+        raise ApiError(f"Couldn't reach {config.api_url()}: {e or type(e).__name__}") from None
 
 
 def _message(code: int, body: dict) -> str:

@@ -31,7 +31,8 @@ def signed_in():
 
 
 class FakeApi:
-    """Records requests and answers from `routes[(method, path)] = (status, body)`."""
+    """Records requests and answers from `routes[(method, path)] = (status, body)`, or
+    (status, body, headers), or from a list of them, one per request in turn (the last one repeats)."""
 
     def __init__(self):
         self.routes, self.calls = {}, []
@@ -43,9 +44,14 @@ class FakeApi:
                 body = json.loads(self.rfile.read(length)) if length else None
                 path = self.path.split("?")[0]
                 api.calls.append({"method": self.command, "path": self.path, "body": body, "headers": dict(self.headers)})
-                status, out = api.routes.get((self.command, path), (404, {}))
+                answer = api.routes.get((self.command, path), (404, {}))
+                if isinstance(answer, list):
+                    answer = answer.pop(0) if len(answer) > 1 else answer[0]
+                status, out, headers = (*answer, {})[:3]
                 data = json.dumps(out).encode()
                 self.send_response(status)
+                for name, value in headers.items():
+                    self.send_header(name, value)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(data)))
                 self.end_headers()
@@ -64,5 +70,13 @@ class FakeApi:
 def api(monkeypatch):
     fake = FakeApi()
     monkeypatch.setenv("STATIONHOUSE_API_URL", fake.url)
+    yield fake
+    fake.server.shutdown()
+
+
+@pytest.fixture
+def elsewhere():
+    """Another server, not the platform: where a redirect might try to send the member's token."""
+    fake = FakeApi()
     yield fake
     fake.server.shutdown()
