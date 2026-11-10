@@ -1,5 +1,6 @@
 import base64
 import json
+import subprocess
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -11,6 +12,18 @@ def jwt(exp: float) -> str:
     def b64(obj):
         return base64.urlsafe_b64encode(json.dumps(obj).encode()).rstrip(b"=").decode()
     return f"{b64({'alg': 'none'})}.{b64({'exp': exp})}.sig"
+
+
+# The variables git sets for a hook (GIT_DIR, GIT_INDEX_FILE, ...). Run from one, as the platform's
+# pre-push hook does, they'd point every `git -C <tmp_path>` in these tests at the enclosing repo:
+# `git init` there turned it bare and `git config` gave it the test's identity.
+GIT_LOCAL_ENV = subprocess.run(["git", "rev-parse", "--local-env-vars"], capture_output=True, text=True).stdout.split()
+
+
+@pytest.fixture(autouse=True)
+def no_enclosing_repo(monkeypatch):
+    for name in GIT_LOCAL_ENV:
+        monkeypatch.delenv(name, raising=False)
 
 
 @pytest.fixture(autouse=True)
