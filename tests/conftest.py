@@ -63,7 +63,8 @@ class FakeApi:
 
         self.server = HTTPServer(("127.0.0.1", 0), H)
         self.url = f"http://127.0.0.1:{self.server.server_port}"
-        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        # shutdown() waits for serve_forever's next poll: the default 0.5 s, paid by every test.
+        threading.Thread(target=self.server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True).start()
 
 
 @pytest.fixture

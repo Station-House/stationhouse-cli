@@ -1,6 +1,6 @@
 [project]
 name = "stationhouse-cli"
-version = "0.1.0"
+dynamic = ["version"]  # stationhouse_cli.__version__, which the release tag (cli-v<version>) must match
 description = "Station House from the terminal: see who is working on what, find and claim work, propose subtasks and tasks, and ask questions about the task tree. Signs in with your Station House account."
 requires-python = ">=3.10"
 dependencies = [
@@ -18,6 +18,9 @@ build-backend = "setuptools.build_meta"
 [project.scripts]
 stationhouse = "stationhouse_cli.cli:main"
 sth = "stationhouse_cli.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "stationhouse_cli.__version__" }
 
 [tool.setuptools.packages.find]
 where = ["src"]

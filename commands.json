@@ -1,0 +1,61 @@
+{
+  "commands": {
+    "agents-md": [],
+    "ask": [],
+    "assign": [],
+    "chat": [],
+    "claim": [],
+    "context": [],
+    "design": [
+      "answer",
+      "attach-trace",
+      "check",
+      "finalize",
+      "gate",
+      "guide",
+      "new",
+      "review",
+      "round",
+      "start",
+      "status"
+    ],
+    "explore": [],
+    "find-work": [],
+    "follow-ups": [],
+    "hooks": [
+      "install"
+    ],
+    "inbox": [],
+    "login": [],
+    "logout": [],
+    "mcp": [],
+    "mine": [],
+    "neuron": [
+      "claim",
+      "mine",
+      "release",
+      "renew",
+      "who"
+    ],
+    "project": [],
+    "projects": [],
+    "prs": [],
+    "release": [],
+    "skills-install": [],
+    "task": [
+      "approve",
+      "claim",
+      "create",
+      "proposals",
+      "reject",
+      "release",
+      "request"
+    ],
+    "todo": [],
+    "train": [],
+    "unclaimed": [],
+    "who": [],
+    "whoami": [],
+    "work": []
+  }
+}
