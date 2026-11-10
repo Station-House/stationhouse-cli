@@ -14,6 +14,13 @@ Two ways in:
   `--json`) return plain facts, and your own agent (Claude Code, Codex, Cursor) reasons over them.
   See [Using it from a coding agent](#using-it-from-a-coding-agent).
 
+## Where the source lives
+
+`Station-House/stationhouse-cli` is the CLI's public release repo: install from it, add its plugin
+marketplace. The source is `cli/` in Station House's platform repository, where it's built and
+tested with the app it talks to, and each release is pushed here from there. Send changes to the
+platform repository, not here.
+
 ## Credit
 
 The idea, a small CLI plus agent skills that give an agent a way into a project's own world, comes
@@ -216,9 +223,22 @@ tests run the CLI against a fake server.
 
 ## Development
 
+In the platform repository, from `cli/`:
+
 ```bash
-uv venv && uv pip install -e '.[dev]' && .venv/bin/python -m pytest
+uv run --extra dev --extra mcp pytest
 ```
+
+When you add, rename or remove a command, regenerate the list the platform reads (a test fails
+until you do):
+
+```bash
+uv run python -m stationhouse_cli.commands > commands.json
+```
+
+A release: bump `__version__` (`src/stationhouse_cli/__init__.py`) and the plugin's version
+(`.claude-plugin/plugin.json`) in a pull request, merge it, then run the platform's `CLI release`
+workflow on main. It tests, tags `cli-v<version>` and pushes `cli/` here, tagged `v<version>`.
 
 Set `STATIONHOUSE_API_URL` to point at another server (default `https://app.station-house.net`). It must be
 https, except on localhost. A browser-approved sign-in only works with the server that issued it: after
