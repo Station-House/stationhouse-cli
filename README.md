@@ -43,6 +43,11 @@ stationhouse claim <task-id>  # put yourself on it
 stationhouse release <task-id>
 stationhouse inbox            # PRs and discussions waiting on you: feedback, replies, mentions
 stationhouse inbox done 348   # mark one handled (it comes back if someone comments again)
+stationhouse join <id>        # join a project: you work on it, and you follow it too
+stationhouse unfollow <id>    # stop hearing about it; you stay a member (mentions and your tasks still reach you)
+stationhouse follow <id>      # hear about a project without joining; `leave <id>` keeps the follow
+stationhouse following        # the projects you joined or follow, and the pages you follow
+stationhouse unfollow --page <id>  # one page (a post, task or update); `follow --page <id>` again
 stationhouse mine
 stationhouse prs              # open PRs waiting for a review (not yours), unreviewed first
 ```

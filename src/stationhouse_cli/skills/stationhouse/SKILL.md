@@ -29,6 +29,10 @@ stationhouse projects                       the projects they can see (and which
 stationhouse project [use <id> | clear]     show / pick / forget the project they work in
 stationhouse inbox                          PRs and discussions waiting on the contributor: feedback, replies, mentions
 stationhouse inbox done <#number>           mark one handled (it comes back if someone comments again)
+stationhouse join|leave [project]           join a project (which follows it too) / leave it (still following; a lead can't)
+stationhouse follow|unfollow [project]      hear about a project or stop; a member who unfollows stays one
+stationhouse follow|unfollow --page <id>    follow or unfollow one page (a post, task or update) by hand
+stationhouse following                      the projects they joined or follow, and the pages they follow
 stationhouse find-work [about words]        pick an open task for the contributor, with the reasons
 stationhouse explore "question"             which tasks a question is about, and who is on them (a lookup; no model)
 stationhouse task claim <task-id>           put the contributor on a task or subtask; it shows on their dashboard

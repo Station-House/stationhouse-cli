@@ -69,11 +69,16 @@ Projects come first and tasks live under their project. A task asked for under t
 | `POST /projects/{p}/tasks/{t}/assign` | `{ hfUsername }` (admin only) | `{ ok: true }` |
 | `POST /projects/{p}/tasks/{t}/subtasks` | `{ title, summary }` | `{ proposalId, created, status }` (`task create`) |
 | `GET /proposals`, `POST /proposals/approve`, `POST /proposals/reject` | (admin only) | the subtask-proposal queue |
+| `PUT`/`DELETE /projects/{p}/membership` | (no body) | `{ projectId, title, member, lead, following, reason, changed }` (`join`, `leave`; a lead's leave is a 409) |
+| `GET`/`PUT`/`DELETE /projects/{p}/following` | (no body) | the same (`follow`, `unfollow`; GET reads it, without `changed`) |
+| `GET`/`PUT`/`DELETE /pages/{id}/following` | (no body) | `{ following, reason, unfollowed, projectFollowing, others }` (`follow --page`, `unfollow --page`) |
+| `GET /me/following` | | `{ projects: [{ projectId, title, member, lead, following, reason }], pages: [{ pageId, projectId, projectTitle, kind, title, reason, lastActivityAt }] }` (`following`) |
 | `POST /agent/chat` | `{ messages: [{ role, text }], project? }` | `{ reply, suggestedActions, taskIds }` (the assistant, for people) |
 
 Errors are `{ "error": "message" }` with a normal status. `claim` for a member with no verified HF
 handle is a 409 with a message telling them to verify it on the website. `dashboard` is `added` /
-`removed` / `unchanged` / `failed` for the task's card on the website dashboard.
+`removed` / `unchanged` / `failed` for the task's card on the website dashboard. The Join & Follow
+routes answer 403 for a project the member can't see; the CLI then names the nearest one they can.
 
 ## Who thinks where
 

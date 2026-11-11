@@ -15,6 +15,7 @@ HELP = """Ask anything about the projects and tasks, e.g. "what could I work on?
 Commands start with /:
   /projects  /project use <id>  /who <task>  /context <task>  /claim <task>  /release <task>
   /inbox (what's waiting on you)  /inbox done <#number>  /mine  /prs  /unclaimed  /find-work
+  /join <project>  /leave <project>  /follow <project>  /unfollow <project>  /following
   /login  /logout  /whoami  /clear (forget this conversation)  /help  /exit
 Any other `stationhouse` command works the same way after a /."""
 

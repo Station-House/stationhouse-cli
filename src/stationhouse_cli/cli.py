@@ -13,7 +13,7 @@ from datetime import datetime
 from importlib import resources
 from pathlib import Path
 
-from . import __version__, chat, config, design, explore as explore_mod, gate, inbox, projects, traces, train, versioncheck, wizard, work
+from . import __version__, chat, config, design, explore as explore_mod, following, gate, inbox, projects, traces, train, versioncheck, wizard, work
 from .auth import (AuthError, DeviceLoginUnavailable, WrongCodeError, current_credentials, device_login,
                    is_platform_page, login, login_with_email_code, normalize_email, request_email_code, sign_out)
 from .client import ApiError, UpgradeRequired, request
@@ -251,6 +251,24 @@ def cmd_inbox(args):
             f"Marked #{item['num']} done. It comes back if someone comments again."))
         return
     _emit(args, inbox.fetch(project), inbox.render)
+
+
+def cmd_join_follow(args):
+    """join, leave, follow, unfollow <project>; follow/unfollow --page <id> for a page."""
+    command = args.cmd
+    page = getattr(args, "page", None)
+    if page is not None:
+        if args.project_id:
+            raise ApiError(f"Name the page or the project, not both: stationhouse {command} --page <id>")
+        change = following.page_command(page, command == "follow")
+        _emit(args, change, lambda d: following.render_page_change(page, command == "follow", d))
+        return
+    change = following.project_command(command, projects.resolve(args.project_id))
+    _emit(args, following.summary(change), lambda _: following.render_change(command, change))
+
+
+def cmd_following(args):
+    _emit(args, following.fetch(), following.render_list)
 
 
 CARD_ADDED = {
@@ -966,6 +984,15 @@ def build_parser():
     ib.add_argument("target", nargs="?", metavar="number", help="with `done`: the PR/discussion number (or its full id)")
     pr = project(add("prs", cmd_prs, "open PRs waiting for a review (not your own), unreviewed first"))
     pr.add_argument("--limit", type=int, default=10)
+    for name, help in (("join", "join a project: you work on it, and you follow it too"),
+                       ("leave", "leave a project; tasks you're on stay yours and you still follow it"),
+                       ("follow", "hear about a project without joining it, or a page with --page <id>"),
+                       ("unfollow", "stop hearing about a project (a member stays one), or a page with --page <id>")):
+        jf = add(name, cmd_join_follow, help)
+        jf.add_argument("project_id", nargs="?", metavar="project", help="project id (default: the one from `project use`, or the only one)")
+        if name in ("follow", "unfollow"):
+            jf.add_argument("--page", metavar="id", help="a page (a post, task or update) instead of a project")
+    add("following", cmd_following, "the projects you joined or follow, and the pages you follow")
     add("claim", cmd_claim, "claim a task (same as `task claim`)", task=True)
     add("release", cmd_release, "release a task you claimed (same as `task release`)", task=True)
     a = add("assign", cmd_assign, "admins only: put someone on a task", task=True)
