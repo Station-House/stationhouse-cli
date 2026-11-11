@@ -14,7 +14,8 @@ from datetime import datetime
 from importlib import resources
 from pathlib import Path
 
-from . import __version__, chat, config, design, email_switches, explore as explore_mod, following, gate, inbox, leads, pm, projects, traces, train, updates, versioncheck, wizard, work
+from . import (__version__, chat, config, design, discussions, email_switches, explore as explore_mod, following, gate, inbox, leads, pm,
+               projects, traces, train, updates, versioncheck, wizard, work)
 from .auth import (AuthError, DeviceLoginUnavailable, WrongCodeError, current_credentials, device_login,
                    is_platform_page, login, login_with_email_code, normalize_email, request_email_code, sign_out)
 from .client import ApiError, NotFound, SignInRequired, UpgradeRequired, request, signed_in
@@ -290,6 +291,55 @@ def cmd_context(args):
         for m in d.get("mentions", []):
             print(f"\n  Mentioned by {m['author']} on {m['thread']}: {' '.join(m['text'].split())[:100]}")
     _emit(args, out, human)
+
+
+DISCUSSION_ACTIONS = ("show", "new", "reply", "follow", "unfollow")
+
+
+def cmd_discussions(args):
+    """`discussions [<scope>]` lists; `show <id>`, `new <scope>`, `reply <id>`, `follow|unfollow <scope>` act.
+    The scope is `community` or a project id (default: the project you picked, else the community)."""
+    action, target = args.action, args.target
+    if action not in DISCUSSION_ACTIONS:
+        if action is not None and target is not None:
+            raise ApiError(f"Unknown action {action!r}. Use one of: {', '.join(DISCUSSION_ACTIONS)}, or a scope to list.")
+        scope = action or projects.chosen(args.project) or discussions.COMMUNITY
+        data = discussions.in_category(discussions.fetch(scope, all_posts=args.all), args.category)
+        _emit(args, data, lambda d: discussions.render_list(d, limit=None if args.all else discussions.SHOWN))
+        return
+    if action in ("show", "reply") and not target:
+        raise ApiError(f"Which post? stationhouse discussions {action} <post-id>  (see `stationhouse discussions community`)")
+    if action == "show":
+        _emit(args, discussions.show(target), discussions.render_post)
+    elif action == "new":
+        scope = target or projects.chosen(args.project) or discussions.COMMUNITY
+        if not args.title:
+            raise ApiError(f'Give it a title: stationhouse discussions new {scope} --category … --title "…"')
+        data = discussions.create(scope, args.category, args.title, discussions.body_from(args), args.draft)
+        _emit(args, data, discussions.render_created)
+    elif action == "reply":
+        body = discussions.body_from(args)
+        if not body.strip():
+            raise ApiError(f'Say something: stationhouse discussions reply {target} --body "…"')
+        _emit(args, discussions.reply(target, body, args.to), discussions.render_replied)
+    else:
+        scope = target or projects.chosen(args.project) or discussions.COMMUNITY
+        _emit(args, discussions.follow(scope, action == "follow"), discussions.render_follow)
+
+
+def cmd_announcements(args):
+    """`announcements` lists; `show <id|latest>` prints one; `comment <id|latest> --body` comments on it."""
+    if args.action in (None, "list"):
+        _emit(args, discussions.announcements(), lambda d: discussions.render_announcements(d, limit=None if args.all else discussions.SHOWN))
+        return
+    target = args.target or "latest"
+    if args.action == "show":
+        _emit(args, discussions.announcement(target), discussions.render_announcement)
+        return
+    body = discussions.body_from(args)
+    if not body.strip():
+        raise ApiError(f'Say something: stationhouse announcements comment {target} --body "…"')
+    _emit(args, discussions.comment(target, body, args.to), discussions.render_commented)
 
 
 def cmd_prs(args):
@@ -1445,6 +1495,24 @@ def build_parser():
                      aliases=["follow-ups", "todo"]))
     ib.add_argument("action", nargs="?", choices=["list", "done"], default="list")
     ib.add_argument("target", nargs="?", metavar="number", help="with `done`: the PR/discussion number (or its full id)")
+    ds = project(add("discussions", cmd_discussions, "the community's (or a project's) discussions: list, show, new, reply, follow"))
+    ds.add_argument("action", nargs="?", metavar="scope|action",
+                    help="`community` or a project id to list; or show <id>, new <scope>, reply <id>, follow|unfollow <scope>")
+    ds.add_argument("target", nargs="?", metavar="id|scope")
+    ds.add_argument("--category", help="list one category; with `new`, the post's category (e.g. questions)")
+    ds.add_argument("--title", help="with `new`: the post's title")
+    ds.add_argument("--body", help="with `new` or `reply`: the text (Markdown)")
+    ds.add_argument("--body-file", help="with `new` or `reply`: read the text from a file (`-` for stdin)")
+    ds.add_argument("--draft", action="store_true", help="with `new`: keep it as a Draft instead of publishing")
+    ds.add_argument("--to", metavar="comment-id", help="with `reply`: answer this comment")
+    ds.add_argument("--all", action="store_true", help="list every post, the archived ones too")
+    an = add("announcements", cmd_announcements, "the announcements the team emailed everyone: list, show, comment")
+    an.add_argument("action", nargs="?", choices=["list", "show", "comment"])
+    an.add_argument("target", nargs="?", metavar="id|latest", help="with show or comment (default: latest)")
+    an.add_argument("--body", help="with `comment`: the text (Markdown)")
+    an.add_argument("--body-file", help="with `comment`: read the text from a file (`-` for stdin)")
+    an.add_argument("--to", metavar="comment-id", help="with `comment`: reply to this comment")
+    an.add_argument("--all", action="store_true", help="list every announcement")
     pr = project(add("prs", cmd_prs, "open PRs waiting for a review (not your own), unreviewed first"))
     pr.add_argument("--limit", type=int, default=10)
     for name, help in (("join", "join a project: you work on it, and you follow it too"),

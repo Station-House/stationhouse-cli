@@ -82,6 +82,14 @@ Projects come first and tasks live under their project. A task asked for under t
 | `GET /me/email` | | `{ digest, activity, announcements, address, timeZone, sending, projects: { joined, followed } }` (`email`; `sending` is false until Stationhouse sends these emails) |
 | `PATCH /me/email` | `{ digest?, activity?, announcements? }`, each `true`/`false` | the same, with `changed` (`email set <kind> <on\|off>`; any other key is a 400) |
 | `POST /agent/chat` | `{ messages: [{ role, text }], project? }` | `{ reply, suggestedActions, taskIds }` (the assistant, for people) |
+| `GET /discussions/{scope}` | `?all=1` | `{ scope, title, following, canPost, writeHint, categories: [{ id, name, count }], posts: [{ id, title, category, author, comments, lastActivityAt, status, hidden, url }], archivedCount, archived }` (`discussions <scope>`; scope is `community` or a project id) |
+| `POST /discussions/{scope}` | `{ category, title, body, draft? }` | 201 `{ post, comments, canComment }` (`discussions new`); 403 "Finish setting up first: <url>", 400 for an unknown category (lists the valid ones) |
+| `PUT`/`DELETE /discussions/{scope}/following` | (no body) | `{ scope, title, following }` (`discussions follow` / `unfollow`) |
+| `GET /posts/{id}` | | `{ post: { id, scope, title, category, author, body, reactions, status, hidden, url, ... }, comments: [{ id, author, at, body, deleted, hidden, replies }], canComment }` (`discussions show`) |
+| `POST /posts/{id}/comments` | `{ body, parentId? }` | as `GET /posts/{id}` (`discussions reply`) |
+| `GET /announcements` | | `{ announcements: [{ id, title, sentBy, sentAt, comments, firstLine, url }] }` |
+| `GET /announcements/{id\|latest}` | | `{ announcement: { ..., body, button, reactions }, comments, canComment }` (`announcements show`) |
+| `POST /announcements/{id\|latest}/comments` | `{ body, parentId? }` | as `GET /announcements/{id}` (`announcements comment`) |
 
 Errors are `{ "error": "message" }` with a normal status. `claim` for a member with no verified HF
 handle is a 409 with a message telling them to verify it on the website. `dashboard` is `added` /

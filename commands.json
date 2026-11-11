@@ -13,6 +13,7 @@
       "migrate-overview"
     ],
     "agents-md": [],
+    "announcements": [],
     "ask": [],
     "assign": [],
     "chat": [],
@@ -32,6 +33,7 @@
       "start",
       "status"
     ],
+    "discussions": [],
     "email": [],
     "explore": [],
     "find-work": [],

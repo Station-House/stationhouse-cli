@@ -46,6 +46,10 @@ stationhouse who <task-id>                  people on a task, and whether each i
 stationhouse context <task-id>              what's happening on a task: who, which PRs/discussions, their latest comments
 stationhouse mine                           the contributor's own claims
 stationhouse prs [--project P]              open PRs waiting for a review (not the contributor's own), unreviewed first
+stationhouse discussions community         the community's discussions (or a project id's); show <id> to read one
+stationhouse discussions new community --category questions --title "…" --body-file f.md   start one
+stationhouse discussions reply <id> --body "…"   reply; follow|unfollow <scope> for new posts in the Inbox
+stationhouse announcements [show latest]    what the team emailed everyone; comment <id|latest> --body "…"
 stationhouse assign <task-id> <hf-handle>   admins only
 stationhouse task proposals|approve|reject  admins only: review proposed subtasks
 stationhouse neuron claim <L40-N25546> [note]  Marin Neuron Atlas: hold a neuron so nobody else takes it
