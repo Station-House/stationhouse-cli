@@ -79,6 +79,8 @@ Projects come first and tasks live under their project. A task asked for under t
 | `GET`/`PUT`/`DELETE /projects/{p}/following` | (no body) | the same (`follow`, `unfollow`; GET reads it, without `changed`) |
 | `GET`/`PUT`/`DELETE /pages/{id}/following` | (no body) | `{ following, reason, unfollowed, projectFollowing, others }` (`follow --page`, `unfollow --page`) |
 | `GET /me/following` | | `{ projects: [{ projectId, title, member, lead, following, reason }], pages: [{ pageId, projectId, projectTitle, kind, title, reason, lastActivityAt }] }` (`following`) |
+| `GET /me/email` | | `{ digest, activity, announcements, address, timeZone, sending, projects: { joined, followed } }` (`email`; `sending` is false until Stationhouse sends these emails) |
+| `PATCH /me/email` | `{ digest?, activity?, announcements? }`, each `true`/`false` | the same, with `changed` (`email set <kind> <on\|off>`; any other key is a 400) |
 | `POST /agent/chat` | `{ messages: [{ role, text }], project? }` | `{ reply, suggestedActions, taskIds }` (the assistant, for people) |
 
 Errors are `{ "error": "message" }` with a normal status. `claim` for a member with no verified HF

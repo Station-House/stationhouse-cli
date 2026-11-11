@@ -14,7 +14,7 @@ from datetime import datetime
 from importlib import resources
 from pathlib import Path
 
-from . import __version__, chat, config, design, explore as explore_mod, following, gate, inbox, leads, pm, projects, traces, train, updates, versioncheck, wizard, work
+from . import __version__, chat, config, design, email_switches, explore as explore_mod, following, gate, inbox, leads, pm, projects, traces, train, updates, versioncheck, wizard, work
 from .auth import (AuthError, DeviceLoginUnavailable, WrongCodeError, current_credentials, device_login,
                    is_platform_page, login, login_with_email_code, normalize_email, request_email_code, sign_out)
 from .client import ApiError, NotFound, SignInRequired, UpgradeRequired, request, signed_in
@@ -359,6 +359,24 @@ def cmd_join_follow(args):
 
 def cmd_following(args):
     _emit(args, following.fetch(), following.render_list)
+
+
+def cmd_email(args):
+    """email: the three switches; email set <kind> <on|off>: one of them."""
+    if args.action == "show":
+        if args.kind:
+            raise ApiError("To change one: stationhouse email set digest|activity|announcements on|off")
+        data = email_switches.fetch()
+        _emit(args, email_switches.summary(data), lambda _: email_switches.render(data))
+        return
+    if not args.kind or not args.value:
+        raise ApiError("Which one? stationhouse email set digest|activity|announcements on|off")
+    try:
+        data = email_switches.set_kind(args.kind, args.value)
+    except email_switches.NotAKind as e:
+        print(e, file=sys.stderr)
+        return 2
+    _emit(args, email_switches.summary(data, bool(data.get("changed"))), lambda _: email_switches.render_set(args.kind, data))
 
 
 CARD_ADDED = {
@@ -1433,6 +1451,11 @@ def build_parser():
         if name in ("follow", "unfollow"):
             jf.add_argument("--page", metavar="id", help="a page (a post, task or update) instead of a project")
     add("following", cmd_following, "the projects you joined or follow, and the pages you follow")
+    em = add("email", cmd_email, "the emails you get (Daily digest, Project activity, Announcements), "
+                                 "or `email set <kind> <on|off>`")
+    em.add_argument("action", nargs="?", choices=["show", "set"], default="show")
+    em.add_argument("kind", nargs="?", metavar="kind", help="with `set`: digest, activity or announcements")
+    em.add_argument("value", nargs="?", metavar="on|off", help="with `set`: on or off")
     add("claim", cmd_claim, "claim a task (same as `task claim`)", task=True)
     add("release", cmd_release, "release a task you claimed (same as `task release`)", task=True, aliases=["unclaim"])
     cm = add("comment", cmd_comment, "comment on a task (- reads stdin); leads: comment hide|unhide <comment-id>", task=True)

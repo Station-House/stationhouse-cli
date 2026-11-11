@@ -33,6 +33,7 @@ stationhouse join|leave [project]           join a project (which follows it too
 stationhouse follow|unfollow [project]      hear about a project or stop; a member who unfollows stays one
 stationhouse follow|unfollow --page <id>    follow or unfollow one page (a post, task or update) by hand
 stationhouse following                      the projects they joined or follow, and the pages they follow
+stationhouse email [set <kind> <on|off>]    their email switches: digest, activity, announcements (all of one project: unfollow it)
 stationhouse find-work [about words]        pick an open task for the contributor, with the reasons
 stationhouse explore "question"             which tasks a question is about, and who is on them (a lookup; no model)
 stationhouse task claim <task-id>           put the contributor on a task or subtask; it shows on their dashboard
