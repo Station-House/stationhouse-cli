@@ -246,7 +246,8 @@ def _you_can(task: dict) -> str:
         parts.extend(["approve", "send back", "decline"])
     if can.get("reopen"):
         parts.append("reopen")
-    parts.append("comment")  # follow/unfollow join these with the task follow command (STA-324, after #441)
+    parts.append("comment")
+    parts.append("unfollow" if task.get("following") else "follow")
     return "You can: " + " · ".join(parts)
 
 
@@ -372,7 +373,7 @@ def render_release(data: dict, typed: str) -> None:
     else:
         print(f"You're no longer an owner of {_named(t)}. It's {STATE_LABELS.get(t['state'], t['state'])}, with {people(others)}.")
     if t.get("following"):
-        print(dim("You still follow it."))
+        print(dim(f"You still follow it. Stop: stationhouse unfollow {ref_for(typed, t)}"))
 
 
 # What to do next, once a task is in a state (the frames' grey line under a move).

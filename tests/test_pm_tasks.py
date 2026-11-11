@@ -209,7 +209,7 @@ def test_release_and_its_unclaim_alias_put_it_back_to_open(marin, capsys):
         code, out, _ = run(capsys, verb, "2")
         assert code == 0 and out == (
             'You\'re no longer an owner of #2 "Add error bars to the Berg replication". It\'s Open again.\n'
-            "You still follow it.\n")
+            "You still follow it. Stop: stationhouse unfollow 2\n")
 
 
 def test_release_leaving_others_on_it_says_who(marin, capsys):
@@ -461,6 +461,75 @@ def test_comment_reads_stdin_and_replies(marin, capsys, monkeypatch):
 def test_an_empty_comment_is_refused_here(marin, capsys):
     code, _, err = run(capsys, "comment", "2")
     assert code == 1 and err.startswith("error: Say something")
+
+
+# ---------------------------------------------------------------- follow and unfollow a task (STA-324)
+
+def _task2(following):
+    data = fixture("release")
+    data["task"]["following"] = following
+    return data
+
+
+def _page(task):
+    return f"/api/v1/pages/{task['task']['id']}/following"
+
+
+def test_follow_a_task_by_its_number_follows_its_page(marin, capsys):
+    task = _task2(False)
+    marin.routes[("GET", f"{BASE}/tasks/2")] = (200, task)
+    marin.routes[("PUT", _page(task))] = (200, fixture("page-follow"))
+    code, out, _ = run(capsys, "follow", "2")
+    assert code == 0 and out == (
+        'Following #2 "Add error bars to the Berg replication". Its comments and changes reach your Inbox and email.\n'
+        "  Unfollow: stationhouse unfollow 2\n")
+    assert [c["method"] for c in marin.calls[-2:]] == ["GET", "PUT"]
+
+
+def test_follow_a_task_you_follow_changes_nothing(marin, capsys):
+    marin.routes[("GET", f"{BASE}/tasks/2")] = (200, _task2(True))
+    calls = len(marin.calls)
+    code, out, _ = run(capsys, "follow", "#2")
+    assert code == 0 and out == 'You already follow #2 "Add error bars to the Berg replication".\n'
+    assert [c["method"] for c in marin.calls[calls:]] == ["GET"]
+
+
+def test_unfollow_a_task_in_a_named_project(marin, capsys):
+    marin.routes[("DELETE", _page(fixture("task")))] = (200, fixture("page-unfollow"))
+    code, out, _ = run(capsys, "unfollow", f"{P}#1")
+    assert code == 0 and out == (
+        'Stopped following #1 "Run the direct-ask baseline on 3 models". Mentions still reach you.\n'
+        f"  Follow again: stationhouse follow {P}#1\n")
+    assert marin.calls[-2]["path"] == f"{BASE}/tasks/1"
+
+
+def test_unfollow_a_task_you_dont_follow_and_the_json(marin, capsys):
+    marin.routes[("GET", f"{BASE}/tasks/2")] = (200, _task2(False))
+    _, out, _ = run(capsys, "unfollow", "2")
+    assert out == 'You don\'t follow #2 "Add error bars to the Berg replication".\n'
+    _, out, _ = run(capsys, "unfollow", "2", "--json")
+    assert json.loads(out) == {"following": False, "changed": False, "task": {
+        "id": "00000000-0000-4000-8000-000000000018", "number": 2, "title": "Add error bars to the Berg replication", "projectId": P}}
+
+
+def test_a_project_id_still_follows_the_project(marin, capsys):
+    marin.routes[("PUT", f"{BASE}/following")] = (200, {"projectId": P, "title": "Marin", "member": True, "following": True, "changed": True})
+    code, out, _ = run(capsys, "follow", P)
+    assert code == 0 and out.startswith("Following Marin.")
+    assert marin.calls[-1]["path"] == f"{BASE}/following"
+
+
+def test_a_server_without_page_follows_says_so(marin, capsys):
+    task = _task2(False)
+    marin.routes[("GET", f"{BASE}/tasks/2")] = (200, task)
+    marin.routes[("PUT", _page(task))] = (404, {})
+    code, _, err = run(capsys, "follow", "2")
+    assert code == 1 and err == "error: This Station House server can't follow tasks yet.\n"
+
+
+def test_a_missing_task_number_is_not_found(marin, capsys):
+    code, _, err = run(capsys, "follow", "99")
+    assert code == 1 and err == "error: No such task.\n"
 
 
 # ---------------------------------------------------------------- cliUpdateRequired (STA-326)

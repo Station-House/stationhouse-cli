@@ -31,6 +31,7 @@ stationhouse inbox                          PRs and discussions waiting on the c
 stationhouse inbox done <#number>           mark one handled (it comes back if someone comments again)
 stationhouse join|leave [project]           join a project (which follows it too) / leave it (still following; a lead can't)
 stationhouse follow|unfollow [project]      hear about a project or stop; a member who unfollows stays one
+stationhouse follow|unfollow <task>         follow or unfollow a project-management task: 12 or <project>#12
 stationhouse follow|unfollow --page <id>    follow or unfollow one page (a post, task or update) by hand
 stationhouse following                      the projects they joined or follow, and the pages they follow
 stationhouse email [set <kind> <on|off>]    their email switches: digest, activity, announcements (all of one project: unfollow it)

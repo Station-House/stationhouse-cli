@@ -4,7 +4,8 @@ project header, and `following`, the list on Preferences · Following.
 Join says "I work here" and follows the project too. Follow says "I want to hear about it". A member
 who unfollows stays a member and hears nothing about the project but mentions of them and tasks that
 are theirs. Leaving keeps the follow. Page follows are separate: you follow a page you wrote, own,
-commented on or were mentioned on, and can follow or unfollow one yourself.
+commented on or were mentioned on, and can follow or unfollow one yourself. A project-management
+task is a page too: `follow 12` (or `<project>#12`) finds it by its number and follows its page.
 
 The platform's routes (all idempotent; a write answers where you stand now, with `changed`):
   PUT/DELETE /api/v1/projects/<p>/membership   join, leave (a lead's leave is a 409 that says why)
@@ -15,7 +16,7 @@ The platform's routes (all idempotent; a write answers where you stand now, with
 import difflib
 import urllib.parse
 
-from . import projects
+from . import pm, projects
 from .client import ApiError, request
 
 # What each command calls: (path under the project, method).
@@ -109,6 +110,42 @@ def page_command(page_id: str, follow: bool) -> dict:
         if e.status == 404 and not e.body.get("error"):
             raise ApiError("This Station House server can't follow pages yet.", 404) from None
         raise
+
+
+def task_command(ref: str, follow: bool) -> dict:
+    """Follows or unfollows a project-management task, named by its number (`12`, `#12`,
+    `<project>#12`). The task says whether you follow it, so a second run changes nothing and says
+    so; otherwise its page's follow changes. Returns the page's follow with `changed` and the task."""
+    _, data = projects.task_call("GET", ref)
+    if not pm.is_pm(data):
+        raise ApiError(f"{ref} isn't a project-management task. Follow its project: stationhouse follow <project>")
+    t = data["task"]
+    task = {"id": t["id"], "number": t["number"], "title": t["title"], "projectId": t["projectId"]}
+    if bool(t.get("following")) == follow:
+        return {"following": follow, "changed": False, "task": task}
+    path = f"/api/v1/pages/{urllib.parse.quote(t['id'], safe='')}/following"
+    try:
+        change = request("PUT" if follow else "DELETE", path) or {}
+    except ApiError as e:
+        if e.status == 404 and not e.body.get("error"):
+            raise ApiError("This Station House server can't follow tasks yet.", 404) from None
+        raise
+    return {**change, "changed": True, "task": task}
+
+
+def render_task_change(typed: str, follow: bool, change: dict, out=print) -> None:
+    task, ref = change["task"], pm.ref_for(typed, change["task"])
+    named = pm.named(task)
+    if follow and not change.get("changed"):
+        out(f"You already follow {named}.")
+    elif follow:
+        out(f"Following {named}. Its comments and changes reach your Inbox and email.")
+        out(f"  Unfollow: stationhouse unfollow {ref}")
+    elif not change.get("changed"):
+        out(f"You don't follow {named}.")
+    else:
+        out(f"Stopped following {named}. Mentions still reach you.")
+        out(f"  Follow again: stationhouse follow {ref}")
 
 
 def render_page_change(page_id: str, follow: bool, change: dict, out=print) -> None:

@@ -49,6 +49,7 @@ stationhouse follow <id>      # hear about a project without joining; `leave <id
 stationhouse following        # the projects you joined or follow, and the pages you follow
 stationhouse email            # the emails you get: Daily digest, Project activity, Announcements
 stationhouse email set activity off   # switch one off (or on): digest, activity or announcements
+stationhouse unfollow 12     # a task, by its number (or <project>#12); `follow 12` again
 stationhouse unfollow --page <id>  # one page (a post, task or update); `follow --page <id>` again
 stationhouse mine
 stationhouse prs              # open PRs waiting for a review (not yours), unreviewed first

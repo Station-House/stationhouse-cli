@@ -77,7 +77,7 @@ Projects come first and tasks live under their project. A task asked for under t
 | `GET /projects/{p}/activity` | `?only=&limit=` | `{ items, counts, hasMore, ... }` (`activity`) |
 | `PUT`/`DELETE /projects/{p}/membership` | (no body) | `{ projectId, title, member, lead, following, reason, changed }` (`join`, `leave`; a lead's leave is a 409) |
 | `GET`/`PUT`/`DELETE /projects/{p}/following` | (no body) | the same (`follow`, `unfollow`; GET reads it, without `changed`) |
-| `GET`/`PUT`/`DELETE /pages/{id}/following` | (no body) | `{ following, reason, unfollowed, projectFollowing, others }` (`follow --page`, `unfollow --page`) |
+| `GET`/`PUT`/`DELETE /pages/{id}/following` | (no body) | `{ following, reason, unfollowed, projectFollowing, others }` (`follow --page`, `unfollow --page`; `follow 12` reads the task, whose `following` says where you stand, then follows its page by the task's `id`) |
 | `GET /me/following` | | `{ projects: [{ projectId, title, member, lead, following, reason }], pages: [{ pageId, projectId, projectTitle, kind, title, reason, lastActivityAt }] }` (`following`) |
 | `GET /me/email` | | `{ digest, activity, announcements, address, timeZone, sending, projects: { joined, followed } }` (`email`; `sending` is false until Stationhouse sends these emails) |
 | `PATCH /me/email` | `{ digest?, activity?, announcements? }`, each `true`/`false` | the same, with `changed` (`email set <kind> <on\|off>`; any other key is a 400) |

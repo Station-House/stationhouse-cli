@@ -19,4 +19,4 @@ Latest
   Nov 9  ada-tester: Llama's tokenizer trims the trailing space, so I pad
          the prompts. Mind checking the GPT runs do the same?
 
-You can: move it to claimed, review · release · comment
+You can: move it to claimed, review · release · comment · unfollow

@@ -344,7 +344,7 @@ def cmd_inbox(args):
 
 
 def cmd_join_follow(args):
-    """join, leave, follow, unfollow <project>; follow/unfollow --page <id> for a page."""
+    """join, leave, follow, unfollow <project>; follow/unfollow <task number> for a task, --page <id> for a page."""
     command = args.cmd
     page = getattr(args, "page", None)
     if page is not None:
@@ -352,6 +352,11 @@ def cmd_join_follow(args):
             raise ApiError(f"Name the page or the project, not both: stationhouse {command} --page <id>")
         change = following.page_command(page, command == "follow")
         _emit(args, change, lambda d: following.render_page_change(page, command == "follow", d))
+        return
+    if command in ("follow", "unfollow") and args.project_id and pm.is_number(args.project_id):
+        # A task's number (`12`, `#12`, `<project>#12`): its page's follow. A project id is never one.
+        change = following.task_command(args.project_id, command == "follow")
+        _emit(args, change, lambda d: following.render_task_change(args.project_id, command == "follow", d))
         return
     change = following.project_command(command, projects.resolve(args.project_id))
     _emit(args, following.summary(change), lambda _: following.render_change(command, change))
@@ -1444,11 +1449,14 @@ def build_parser():
     pr.add_argument("--limit", type=int, default=10)
     for name, help in (("join", "join a project: you work on it, and you follow it too"),
                        ("leave", "leave a project; tasks you're on stay yours and you still follow it"),
-                       ("follow", "hear about a project without joining it, or a page with --page <id>"),
-                       ("unfollow", "stop hearing about a project (a member stays one), or a page with --page <id>")):
+                       ("follow", "hear about a project without joining it, a task by its number, or a page with --page <id>"),
+                       ("unfollow", "stop hearing about a project (a member stays one), a task by its number, or a page with --page <id>")):
         jf = add(name, cmd_join_follow, help)
-        jf.add_argument("project_id", nargs="?", metavar="project", help="project id (default: the one from `project use`, or the only one)")
-        if name in ("follow", "unfollow"):
+        follows = name in ("follow", "unfollow")
+        jf.add_argument("project_id", nargs="?", metavar="project|task" if follows else "project",
+                        help="project id (default: the one from `project use`, or the only one)"
+                        + ("; or a task's number: 12, or <project>#12" if follows else ""))
+        if follows:
             jf.add_argument("--page", metavar="id", help="a page (a post, task or update) instead of a project")
     add("following", cmd_following, "the projects you joined or follow, and the pages you follow")
     em = add("email", cmd_email, "the emails you get (Daily digest, Project activity, Announcements), "
