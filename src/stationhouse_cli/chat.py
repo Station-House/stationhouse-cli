@@ -76,7 +76,7 @@ class Chat:
             return
         messages = (self.history + [{"role": "user", "text": question}])[-MAX_MESSAGES:]
         try:
-            res = request("POST", "/api/v1/agent/chat", {"messages": messages, "project": self.project_fn()})
+            res = request("POST", "/api/v1/agent/chat", {"messages": messages, "project": self.project_fn()}, member_only=True)
         except AuthError:
             self.out("You aren't signed in. Type /login, then ask again.")
             return

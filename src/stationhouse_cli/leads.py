@@ -20,7 +20,7 @@ import urllib.parse
 from datetime import date, datetime, timezone
 
 from . import projects
-from .client import ApiError, request
+from .client import ApiError, SignInRequired, request
 
 BOARD = "/api/v1/board"
 UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
@@ -109,6 +109,8 @@ def _about(project: str) -> dict:
 def _project_title(project: str) -> str:
     try:
         return (request("GET", projects.project_path(project)) or {}).get("project", {}).get("title") or project
+    except SignInRequired:
+        raise  # signed out: say so ("Sign in to …"), don't carry on as if the read were empty
     except ApiError:
         return project
 
@@ -510,6 +512,8 @@ def _offers_project(flag):
         return project
     try:
         return projects.resolve(None)
+    except SignInRequired:
+        raise  # signed out: say so ("Sign in to …"), don't carry on as if the read were empty
     except ApiError:
         return None
 
@@ -554,10 +558,14 @@ def _people(project: str | None, task_view: dict | None = None, offers: dict | N
             suggestions = request("GET", _project_path(project, "/mentions")).get("suggestions") or {}
             for p in suggestions.get("people", []):
                 note(p)
+        except SignInRequired:
+            raise  # signed out: say so ("Sign in to …"), don't carry on as if the read were empty
         except ApiError:
             pass
         try:
             tab = _tasks_tab(project)
+        except SignInRequired:
+            raise  # signed out: say so ("Sign in to …"), don't carry on as if the read were empty
         except ApiError:
             tab = {}
         for t in _tab_tasks(tab):

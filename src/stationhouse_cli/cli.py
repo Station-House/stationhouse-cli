@@ -17,7 +17,7 @@ from pathlib import Path
 from . import __version__, chat, config, design, explore as explore_mod, following, gate, inbox, leads, pm, projects, traces, train, updates, versioncheck, wizard, work
 from .auth import (AuthError, DeviceLoginUnavailable, WrongCodeError, current_credentials, device_login,
                    is_platform_page, login, login_with_email_code, normalize_email, request_email_code, sign_out)
-from .client import ApiError, UpgradeRequired, request
+from .client import ApiError, NotFound, SignInRequired, UpgradeRequired, request, signed_in
 from .store import clear_credentials, load_credentials
 
 # A catalog task's id, a project-management task's number (`12`, `#12`, `llm-self-attribution#12`)
@@ -101,7 +101,13 @@ def cmd_logout(args):
     print("Signed out." if clear_credentials() else "You weren't signed in.")
 
 
+NOT_SIGNED_IN = "Not signed in. Public reads work; sign in to act: stationhouse login"
+
+
 def cmd_whoami(args):
+    if not signed_in():
+        _emit(args, {"signedIn": False}, lambda d: print(NOT_SIGNED_IN))
+        return
     creds = current_credentials()
     me = request("GET", "/api/v1/me")
     _emit(args, {"email": creds["email"], **(me or {})}, lambda d: print(
@@ -125,18 +131,32 @@ def cmd_projects(args):
     _emit(args, out, human)
 
 
+def _found(target: str, call):
+    """`call()`, with the platform's 404 for an unknown project or task, or one the caller may not see
+    (it answers both alike), as "Not found: <id>"."""
+    try:
+        return call()
+    except NotFound:
+        raise
+    except ApiError as e:
+        if e.status == 404 and e.body.get("error") in ("Unknown project.", "Unknown task."):
+            raise NotFound(f"Not found: {target}", 404, e.body) from None
+        raise
+
+
 def cmd_project(args):
     if args.action == "use":
         if not args.project_id:
             raise ApiError("Which one? stationhouse project use <id>  (see `stationhouse projects`)")
-        project = projects.use(args.project_id)
+        project = _found(args.project_id, lambda: projects.use(args.project_id))
         _emit(args, project, lambda p: print(f"Working in {p['id']} ({p['title']}) from now on."))
         return
     if args.action == "clear":
         had = projects.forget()
         _emit(args, {"cleared": had}, lambda d: print("Forgot your project; commands will ask again." if had else "No project was picked."))
         return
-    out = request("GET", projects.project_path(projects.resolve(args.project_id)))
+    project_id = projects.resolve(args.project_id)
+    out = _found(project_id, lambda: request("GET", projects.project_path(project_id)))
 
     def human(d):
         p, o = d["project"], d.get("overview") or {}
@@ -939,7 +959,8 @@ def cmd_design_review(args):
     question, truncated = design.review_question(text, chat.MAX_QUESTION)
     try:
         res = request("POST", "/api/v1/agent/chat",
-                      {"messages": [{"role": "user", "text": question}], "project": projects.chosen(args.project)})
+                      {"messages": [{"role": "user", "text": question}], "project": projects.chosen(args.project)},
+                      member_only=True)
         reply = (res or {}).get("reply") or "(no reply)"
     except ApiError as e:
         if e.status not in chat.OFFLINE_STATUSES and e.status is not None:
@@ -1618,6 +1639,33 @@ def _parse(parser, argv, questions=True):
         return parser.parse_args(["ask", *argv])
 
 
+def _sign_in_to(args) -> str:
+    """What a signed-out caller was trying to do, for "Sign in to <this>: stationhouse login"."""
+    task, neuron = getattr(args, "task_id", "that task"), getattr(args, "neuron_id", "that neuron")
+    if args.fn is cmd_join_follow:
+        page = getattr(args, "page", None)
+        return f"{args.cmd} " + (f"page {page}" if page else (getattr(args, "project_id", None) or "this project"))
+    return {
+        cmd_claim: f"claim {task}", cmd_release: f"release {task}", cmd_assign: f"assign {task}",
+        cmd_mine: "see your tasks", cmd_inbox: "see your inbox",
+        cmd_neuron_claim: f"claim {neuron}", cmd_neuron_release: f"release {neuron}", cmd_neuron_mine: "see your neurons",
+        cmd_task_create: "propose a subtask", cmd_task_request: "request a task",
+        cmd_task_proposals: "review proposals", cmd_task_approve: "approve a proposal", cmd_task_reject: "reject a proposal",
+        cmd_chat: "ask the assistant", cmd_explore: "ask the assistant", cmd_find_work: "find work for you",
+        cmd_following: "see what you follow",
+        # Project management from the CLI (#452): every write signs in first.
+        cmd_move: f"move {task}", cmd_comment: f"comment on {task}", cmd_unassign: f"change who's on {task}",
+        cmd_propose: "propose a task", cmd_task_new: "write a task", cmd_task_decline: f"decline {task}",
+        cmd_task_edit: f"edit {task}", cmd_task_milestone: f"move {task} to a milestone", cmd_task_subtask: "add a subtask",
+    }.get(args.fn, "do that")
+
+
+def _print_sign_in(args, argv):
+    """Signed out, an action (or a member-only read): say what to sign in for, and to run it again (STA-335)."""
+    print(f"Sign in to {_sign_in_to(args)}: stationhouse login", file=sys.stderr)
+    print(f"(then run stationhouse {' '.join(argv)} again)", file=sys.stderr)
+
+
 def main(argv=None, questions=True):
     import re
     argv = sys.argv[1:] if argv is None else list(argv)
@@ -1642,6 +1690,12 @@ def main(argv=None, questions=True):
     try:
         code = args.fn(args)
     except UpgradeRequired as e:
+        print(e, file=sys.stderr)
+        return 1
+    except SignInRequired:
+        _print_sign_in(args, argv)
+        return 1
+    except NotFound as e:
         print(e, file=sys.stderr)
         return 1
     except (AuthError, ApiError) as e:

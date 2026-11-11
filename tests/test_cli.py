@@ -15,9 +15,155 @@ def run(capsys, *argv):
     return code, out.out, out.err
 
 
-def test_requires_login_before_any_call(capsys):
+# ---------------------------------------------------------------- signed out (STA-335)
+
+def test_reads_work_signed_out_without_a_token(api, capsys):
+    api.routes[("GET", "/api/v1/projects/conspiracybench/unclaimed")] = (200, TASKS)
+    code, out, _ = run(capsys, "unclaimed")
+    assert code == 0 and "add-question  Add a question" in out
+    assert "authorization" not in {k.lower() for k in api.calls[0]["headers"]}
+
+
+def test_whoami_signed_out_says_public_reads_work(api, capsys):
+    code, out, _ = run(capsys, "whoami")
+    assert (code, out) == (0, "Not signed in. Public reads work; sign in to act: stationhouse login\n")
+    assert not api.calls
+    _, out, _ = run(capsys, "whoami", "--json")
+    assert json.loads(out) == {"signedIn": False}
+
+
+def test_an_action_signed_out_says_what_to_sign_in_for_and_to_run_it_again_without_calling(api, capsys):
+    code, out, err = run(capsys, "claim", "add-question")
+    assert code == 1 and out == ""
+    assert err == "Sign in to claim add-question: stationhouse login\n(then run stationhouse claim add-question again)\n"
+    assert not api.calls
+
+
+def test_a_member_only_read_signed_out_asks_to_sign_in_without_calling(api, capsys):
+    code, _, err = run(capsys, "mine")
+    assert code == 1 and err.startswith("Sign in to see your tasks: stationhouse login\n")
+    assert not api.calls
+
+
+def test_join_and_follow_signed_out_say_what_to_sign_in_for_without_calling(api, capsys):
+    code, _, err = run(capsys, "join", "llm-self-attribution")
+    assert code == 1 and err.startswith("Sign in to join llm-self-attribution: stationhouse login\n")
+    code, _, err = run(capsys, "follow", "--page", "p-1")
+    assert code == 1 and err.startswith("Sign in to follow page p-1: stationhouse login\n")
+    code, _, err = run(capsys, "following")
+    assert code == 1 and err.startswith("Sign in to see what you follow: stationhouse login\n")
+    assert not api.calls
+
+
+def test_project_management_writes_signed_out_ask_to_sign_in_without_calling(api, capsys):
+    """#452's task commands: every write signs in first, before the network (STA-335). Only visitor
+    reads go out (the project's task model)."""
+    from stationhouse_cli.client import visitor_may
+    import json
+    from pathlib import Path
+    pm = Path(__file__).parent / "fixtures" / "v1"
+    base = "/api/v1/projects/llm-self-attribution"
+    api.routes[("GET", base)] = (200, {"project": {"id": "llm-self-attribution", "taskModel": "project_management"}})
+    # Edit and milestone read first (visitor GETs, which go out), then sign in before writing.
+    api.routes[("GET", f"{base}/tasks/12")] = (200, json.loads((pm / "task.json").read_text()))
+    api.routes[("GET", f"{base}/tasks")] = (200, json.loads((pm / "tasks.json").read_text()))
+    for argv, doing in [
+        (["move", "12", "doing"], "move 12"),
+        (["comment", "12", "hello"], "comment on 12"),
+        (["propose", "A", "new", "idea"], "propose a task"),
+        (["task", "new", "A", "title"], "write a task"),
+        (["task", "decline", "12", "--reason", "Duplicate"], "decline 12"),
+        (["unassign", "12", "ada"], "change who's on 12"),
+        (["task", "edit", "12", "--title", "T"], "edit 12"),
+        (["task", "milestone", "12", "Elicitation"], "move 12 to a milestone"),
+    ]:
+        code, _, err = run(capsys, *argv, "--project", "llm-self-attribution")
+        assert (argv, code, err.splitlines()[0]) == (argv, 1, f"Sign in to {doing}: stationhouse login")
+    assert all(visitor_may(c["method"], c["path"].split("?")[0]) for c in api.calls)
+    assert all("authorization" not in {k.lower() for k in c["headers"]} for c in api.calls)
+
+
+def test_a_project_management_task_list_is_a_visitor_read(api, capsys):
+    """GET …/tasks is documented as open to visitors: it goes out, without a token."""
+    api.routes[("GET", "/api/v1/projects/llm-self-attribution")] = (200, {"project": {"id": "llm-self-attribution", "taskModel": "project_management"}})
+    api.routes[("GET", "/api/v1/projects/llm-self-attribution/tasks")] = (200, {"model": "project_management", "milestones": [], "proposed": []})
+    run(capsys, "tasks", "--project", "llm-self-attribution")
+    assert any(c["path"].startswith("/api/v1/projects/llm-self-attribution/tasks") for c in api.calls)
+    assert all("authorization" not in {k.lower() for k in c["headers"]} for c in api.calls)
+
+
+def test_lead_helpers_let_sign_in_through_instead_of_reading_nothing(api):
+    """leads.py's broad `except ApiError` would take a signed-out caller's SignInRequired for "no
+    people" or "no project": it passes through, so the command says "Sign in to …"."""
+    import pytest
+    from stationhouse_cli import leads
+    from stationhouse_cli.client import SignInRequired
+    with pytest.raises(SignInRequired):
+        leads._people("llm-self-attribution")  # the @ picker's people: a member-only read
+    assert not api.calls
+    api.routes[("GET", "/api/v1/projects/llm-self-attribution")] = (401, {"error": "Sign in required."})
+    with pytest.raises(SignInRequired):
+        leads._project_title("llm-self-attribution")
+
+
+def test_a_public_read_answering_401_signed_out_still_asks_to_sign_in(api, capsys):
+    api.routes[("GET", "/api/v1/projects/conspiracybench/unclaimed")] = (401, {"error": "Sign in required."})
     code, _, err = run(capsys, "unclaimed")
-    assert code == 1 and "stationhouse login" in err
+    assert code == 1 and err.startswith("Sign in to ")
+    assert "authorization" not in {k.lower() for k in api.calls[0]["headers"]}
+
+
+VISITOR_READS = [
+    "/api/v1/projects", "/api/v1/projects/p", "/api/v1/projects/p/tasks", "/api/v1/projects/p/tasks/t",
+    "/api/v1/projects/p/tasks/t/context", "/api/v1/projects/p/tasks/t/people", "/api/v1/projects/p/unclaimed",
+    "/api/v1/projects/p/prs", "/api/v1/projects/p/neurons/claims", "/api/v1/projects/p/neurons/L40-N1/claim",
+    "/api/v1/tasks", "/api/v1/tasks/unclaimed", "/api/v1/tasks/t/context", "/api/v1/tasks/t/people", "/api/v1/prs",
+]
+MEMBER_CALLS = [
+    ("GET", "/api/v1/me"), ("GET", "/api/v1/me/claims"), ("GET", "/api/v1/proposals"), ("GET", "/api/v1/design/sessions"),
+    ("GET", "/api/v1/design/repos"), ("POST", "/api/v1/design/gate-events"), ("POST", "/api/v1/design/sessions"),
+    ("POST", "/api/v1/projects/p/tasks/t/claim"), ("PUT", "/api/v1/projects/p/neurons/L40-N1/claim"),
+    ("DELETE", "/api/v1/projects/p/neurons/L40-N1/claim"), ("POST", "/api/v1/agent/chat"), ("PUT", "/api/admin/config"),
+]
+
+
+def test_signed_out_only_the_documented_visitor_reads_go_out():
+    """docs/contributor-api.md, "Auth": these GETs, and nothing else, may go without a token."""
+    from stationhouse_cli.client import visitor_may
+    assert all(visitor_may("GET", p) for p in VISITOR_READS)
+    assert not any(visitor_may(m, p) for m, p in MEMBER_CALLS)
+
+
+def test_signed_out_the_design_gate_and_wizard_fail_locally(api):
+    """Their calls need a member: signed out they stop before the network, as before STA-335."""
+    import pytest
+    from stationhouse_cli import wizard
+    from stationhouse_cli.client import SignInRequired, request
+    with pytest.raises(SignInRequired):
+        request("POST", "/api/v1/design/gate-events", {"event": "x"})
+    with pytest.raises(SignInRequired):
+        wizard.find("Station-House/marin-neuron-hunt", "my-branch")
+    assert not api.calls
+
+
+def test_a_private_or_unknown_project_is_not_found(api, capsys):
+    api.routes[("GET", "/api/v1/projects/secret-proj")] = (404, {"error": "Unknown project."})
+    code, out, err = run(capsys, "project", "show", "secret-proj")
+    assert (code, out, err) == (1, "", "Not found: secret-proj\n")
+    code, _, err = run(capsys, "project", "use", "secret-proj")
+    assert (code, err) == (1, "Not found: secret-proj\n")
+
+
+def test_an_unknown_task_is_not_found(api, capsys):
+    api.routes[("GET", "/api/v1/projects/conspiracybench/tasks/nope/people")] = (404, {"error": "Unknown task."})
+    code, _, err = run(capsys, "who", "nope")
+    assert (code, err) == (1, "Not found: nope\n")
+
+
+def test_a_signed_in_401_is_still_a_session_problem(signed_in, api, capsys):
+    api.routes[("GET", "/api/v1/me/claims")] = (401, {"error": "Sign in required.", "code": "signInRequired"})
+    code, _, err = run(capsys, "mine")
+    assert code == 1 and err == "error: Sign in required.\n"
 
 
 def test_unclaimed_human_and_json(signed_in, api, capsys):

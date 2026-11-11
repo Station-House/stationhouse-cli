@@ -29,7 +29,9 @@ def no_enclosing_repo(monkeypatch):
 @pytest.fixture(autouse=True)
 def isolated_config(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
-    monkeypatch.delenv("STATIONHOUSE_API_URL", raising=False)
+    # Signed out, reads now go out without a token (STA-335): a test that forgets the `api` fixture
+    # must fail fast on a closed local port, never reach the real platform.
+    monkeypatch.setenv("STATIONHOUSE_API_URL", "http://127.0.0.1:9")
     # Most tests work in one project; the tests of picking a project unset this.
     monkeypatch.setenv("STATIONHOUSE_PROJECT", "conspiracybench")
     # The once-an-hour version check would add a call to every test's fake server; its own tests

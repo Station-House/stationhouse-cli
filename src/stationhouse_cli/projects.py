@@ -8,7 +8,7 @@ commands: if it lives in another project, the platform says which and the call f
 import urllib.parse
 
 from . import config, pm
-from .client import ApiError, request
+from .client import ApiError, NotFound, request
 from .store import load_settings, save_settings
 
 
@@ -77,8 +77,16 @@ def task_call(method: str, task_id: str, suffix: str = "", flag: str | None = No
     except ApiError as e:
         moved = e.body.get("projectId") if e.status == 404 else None
         if not moved or moved == project or flag or named:
-            raise
+            raise _not_found(e, task_id) from None
         return moved, request(method, _task_path(moved, e.body.get("taskId") or task_id, suffix), body)
+
+
+def _not_found(e: ApiError, task_id: str) -> ApiError:
+    """The platform's 404 for an unknown task (or one in a project the caller may not see, which it
+    answers alike) as "Not found: <id>"; any other error as it was."""
+    if e.status == 404 and e.body.get("error") in ("Unknown task.", "Unknown project."):
+        return NotFound(f"Not found: {task_id}", 404, e.body)
+    return e
 
 
 def _task_path(project: str, task_id: str, suffix: str) -> str:
