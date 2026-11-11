@@ -1,0 +1,66 @@
+{
+  "task": {
+    "model": "project_management",
+    "id": "00000000-0000-4000-8000-000000000138",
+    "number": 15,
+    "projectId": "marin-neuron-atlas",
+    "title": "Tidy the notebook",
+    "state": "draft",
+    "owners": [],
+    "milestone": null,
+    "parentId": null,
+    "subtasks": {
+      "done": 0,
+      "total": 0
+    },
+    "mine": false,
+    "updatedAt": "2026-11-07T09:00:00.000Z",
+    "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/15",
+    "projectUrl": "http://localhost/projects/private/marin-neuron-atlas",
+    "body": "",
+    "version": 1,
+    "author": {
+      "memberId": "sub-bo",
+      "name": "bo-tester",
+      "you": true
+    },
+    "parent": null,
+    "subtaskRows": [],
+    "proposal": {
+      "proposer": {
+        "memberId": "sub-bo",
+        "name": "bo-tester",
+        "you": true
+      },
+      "proposedAt": null,
+      "willTake": false,
+      "declined": null
+    },
+    "feed": [
+      {
+        "kind": "created",
+        "id": "00000000-0000-4000-8000-000000000140",
+        "at": "2026-11-07T09:00:00.000Z",
+        "by": {
+          "memberId": "sub-bo",
+          "name": "bo-tester",
+          "you": true
+        },
+        "text": "you created it"
+      }
+    ],
+    "following": true,
+    "can": {
+      "claim": false,
+      "release": false,
+      "states": [],
+      "edit": true,
+      "decide": false,
+      "reopen": false,
+      "propose": true,
+      "addOwners": false,
+      "removeOwners": false,
+      "changeSubtasks": false
+    }
+  }
+}

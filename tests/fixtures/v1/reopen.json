@@ -1,0 +1,95 @@
+{
+  "task": {
+    "model": "project_management",
+    "id": "00000000-0000-4000-8000-000000000111",
+    "number": 12,
+    "projectId": "marin-neuron-atlas",
+    "title": "Add a base-model comparison",
+    "state": "proposed",
+    "owners": [],
+    "milestone": null,
+    "parentId": null,
+    "subtasks": {
+      "done": 0,
+      "total": 0
+    },
+    "mine": false,
+    "updatedAt": "2026-11-07T09:00:00.000Z",
+    "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/12",
+    "projectUrl": "http://localhost/projects/private/marin-neuron-atlas",
+    "body": "",
+    "version": 1,
+    "author": {
+      "memberId": "sub-eve",
+      "name": "eve-tester"
+    },
+    "parent": null,
+    "subtaskRows": [],
+    "proposal": {
+      "proposer": {
+        "memberId": "sub-eve",
+        "name": "eve-tester"
+      },
+      "proposedAt": "2026-11-07T09:00:00.000Z",
+      "willTake": true,
+      "declined": null
+    },
+    "feed": [
+      {
+        "kind": "created",
+        "id": "00000000-0000-4000-8000-000000000113",
+        "at": "2026-11-07T09:00:00.000Z",
+        "by": {
+          "memberId": "sub-eve",
+          "name": "eve-tester"
+        },
+        "text": "eve-tester created it"
+      },
+      {
+        "kind": "proposed",
+        "id": "00000000-0000-4000-8000-000000000114",
+        "at": "2026-11-07T09:00:00.000Z",
+        "by": {
+          "memberId": "sub-eve",
+          "name": "eve-tester"
+        },
+        "text": "eve-tester proposed it"
+      },
+      {
+        "kind": "declined",
+        "id": "00000000-0000-4000-8000-000000000131",
+        "at": "2026-11-07T16:00:00.000Z",
+        "by": {
+          "memberId": "sub-ada",
+          "name": "ada-tester",
+          "you": true
+        },
+        "text": "you declined it: Petri v2 covers it. (a duplicate of \"Petri seed set v2\")"
+      },
+      {
+        "kind": "reopened",
+        "id": "00000000-0000-4000-8000-000000000134",
+        "at": "2026-11-07T23:00:00.000Z",
+        "by": {
+          "memberId": "sub-ada",
+          "name": "ada-tester",
+          "you": true
+        },
+        "text": "you reopened it"
+      }
+    ],
+    "following": false,
+    "can": {
+      "claim": false,
+      "release": false,
+      "states": [],
+      "edit": true,
+      "decide": true,
+      "reopen": false,
+      "propose": false,
+      "addOwners": false,
+      "removeOwners": false,
+      "changeSubtasks": false
+    }
+  }
+}

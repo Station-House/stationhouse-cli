@@ -1,0 +1,99 @@
+{
+  "task": {
+    "model": "project_management",
+    "id": "00000000-0000-4000-8000-000000000111",
+    "number": 12,
+    "projectId": "marin-neuron-atlas",
+    "title": "Add a base-model comparison",
+    "state": "claimed",
+    "owners": [
+      {
+        "memberId": "sub-eve",
+        "name": "eve-tester"
+      }
+    ],
+    "milestone": {
+      "id": "00000000-0000-4000-8000-000000000004",
+      "title": "Elicitation"
+    },
+    "parentId": null,
+    "subtasks": {
+      "done": 0,
+      "total": 0
+    },
+    "mine": false,
+    "updatedAt": "2026-11-07T09:00:00.000Z",
+    "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/12",
+    "projectUrl": "http://localhost/projects/private/marin-neuron-atlas",
+    "body": "",
+    "version": 1,
+    "author": {
+      "memberId": "sub-eve",
+      "name": "eve-tester"
+    },
+    "parent": null,
+    "subtaskRows": [],
+    "proposal": null,
+    "feed": [
+      {
+        "kind": "created",
+        "id": "00000000-0000-4000-8000-000000000113",
+        "at": "2026-11-07T09:00:00.000Z",
+        "by": {
+          "memberId": "sub-eve",
+          "name": "eve-tester"
+        },
+        "text": "eve-tester created it"
+      },
+      {
+        "kind": "proposed",
+        "id": "00000000-0000-4000-8000-000000000114",
+        "at": "2026-11-07T09:00:00.000Z",
+        "by": {
+          "memberId": "sub-eve",
+          "name": "eve-tester"
+        },
+        "text": "eve-tester proposed it"
+      },
+      {
+        "kind": "approved",
+        "id": "00000000-0000-4000-8000-000000000126",
+        "at": "2026-11-07T16:00:00.000Z",
+        "by": {
+          "memberId": "sub-ada",
+          "name": "ada-tester",
+          "you": true
+        },
+        "text": "you approved it, with eve-tester as owner"
+      },
+      {
+        "kind": "milestone_changed",
+        "id": "00000000-0000-4000-8000-000000000128",
+        "at": "2026-11-07T16:00:00.000Z",
+        "by": {
+          "memberId": "sub-ada",
+          "name": "ada-tester",
+          "you": true
+        },
+        "text": "you put it in Elicitation"
+      }
+    ],
+    "following": false,
+    "can": {
+      "claim": false,
+      "release": false,
+      "states": [
+        "doing",
+        "in_review",
+        "completed"
+      ],
+      "edit": true,
+      "decide": false,
+      "reopen": false,
+      "propose": false,
+      "addOwners": true,
+      "removeOwners": true,
+      "changeSubtasks": true
+    }
+  }
+}

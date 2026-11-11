@@ -1,0 +1,16 @@
+marin-neuron-atlas · project management · 5 tasks
+
+Baseline evals  (due Nov 21)
+  #1     Doing      Run the direct-ask baseline on 3 models     ada-tester, you   1 of 2 subtasks
+    #8   Open       Llama run                                   ·
+  #2     Open       Add error bars to the Berg replication      ·
+  #3     In review  Petri seed set v2                           eve-tester   2 of 3 subtasks
+    #11  Open       Seeds C                                     ·
+
+Elicitation
+  #5     Open       Write up the elicitation protocol           ·
+
+No milestone
+  #6     Open       Collect failure cases from the discussions  ·
+
+Claim one: stationhouse claim <number>.  More: stationhouse task <number>

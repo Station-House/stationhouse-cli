@@ -63,6 +63,33 @@ request`) work in `--project <id>`, else `STATIONHOUSE_PROJECT`, else the projec
 `project use`, else the only one you can see. Commands that take a task id find its project
 themselves, so `stationhouse claim <task-id>` works from anywhere.
 
+## Project management
+
+A project that has moved to project management (the website's Tasks tab; `stationhouse projects
+--json` says `"taskModel": "project_management"`) numbers its tasks. You name one by its number in
+the project you're in (`12`), or as `<project>#12` from anywhere:
+
+```bash
+stationhouse tasks                      # by milestone, Proposed apart (--state, --milestone, --mine, --all)
+stationhouse task 12                    # one task: owners, body, subtasks, the latest activity (--feed: all of it)
+stationhouse tasks --state unclaimed    # the Open ones nobody owns (or: stationhouse unclaimed)
+stationhouse claim 12                   # become an owner (and follow it)
+stationhouse move 12 doing              # claimed, doing, review; leads also done and open
+stationhouse comment 12 "Started on the Berg CSV."
+stationhouse release 12                 # stop being an owner (or: unclaim)
+stationhouse propose "Compare against a base model" --body-file idea.md --take
+stationhouse mine                       # every task you own, by project
+```
+
+Leads also have `task new`, `task open`, `task proposals`, `task approve <n> [--milestone M]`,
+`task send-back <n> -m "…"`, `task decline <n> --reason "…"` and `task reopen <n>`. Owners and leads
+have `assign <n> <who>`, `unassign <n> <who>`, `task edit <n>`, `task milestone <n> <M|none>` and
+`task subtask <n> "<title>"`.
+
+A refusal is the platform's own message, then a hint from the CLI (where to join, who owns it, the
+states you can move it to). On a project still on the older catalog, these commands say it hasn't
+moved yet and the commands above work as they always have.
+
 ## Chat
 
 Run `stationhouse` on its own and talk to it, or put the question straight on the command line

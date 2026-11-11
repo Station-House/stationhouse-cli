@@ -1,0 +1,20 @@
+marin-neuron-atlas · project management · 8 tasks
+
+Baseline evals  (due Nov 21)
+  #1   Doing      Run the direct-ask baseline on 3 models     ada-tester, you   1 of 2 subtasks
+  #2   Open       Add error bars to the Berg replication      ·
+  #3   In review  Petri seed set v2                           eve-tester   2 of 3 subtasks
+
+Elicitation
+  #4   Claimed    Prompt sweep for self-report stability      eve-tester
+  #5   Open       Write up the elicitation protocol           ·
+
+No milestone
+  #6   Open       Collect failure cases from the discussions  ·
+
+Proposed (2), waiting for a lead
+  #12  Add a base-model comparison      by eve-tester, will take it
+  #13  Re-run Petri with the new judge  by you
+
+Claim one: stationhouse claim <number>.  More: stationhouse task <number>
+Only the open ones: stationhouse tasks --state unclaimed (or stationhouse unclaimed)

@@ -920,11 +920,7 @@ def register(sub, tsub, add, project):
     mdel.add_argument("n", type=int, metavar="N")
     mdel.add_argument("--yes", action="store_true", help="don't ask")
 
-    tn = project(add("new", cmd_task_new, "leads: create an Open task, optionally in a milestone and offered to someone", under=tsub))
-    tn.add_argument("title", nargs="+")
-    tn.add_argument("-b", "--body", help="its description (markdown)")
-    tn.add_argument("--milestone", help="its milestone: its number, or the start of its title")
-    tn.add_argument("--offer", metavar="PERSON", help="offer it to this member: their name (or its start), or member id")
+    # `task new --offer` (cmd_task_new below) is registered with the rest of `task new` in cli.py.
 
     project(add("offers", cmd_offers, "tasks offered to you; for a lead, the offers on your project too"))
     of = project(add("offer", cmd_offer, "offer <task> <person> (leads); offer accept|decline|withdraw <task>"))
@@ -945,11 +941,8 @@ def register(sub, tsub, add, project):
         if flag:
             sp.add_argument("-m", "--message", metavar="NOTE", help=flag)
 
-    co = sub.add_parser("comment", help="leads: hide a comment (its full id, from its link on the site)")
-    csub = co.add_subparsers(dest="comment_cmd", required=True)
-    for name, fn, help in (("hide", cmd_comment_hide, "hide a comment; its author and the leads still see it"),
-                           ("unhide", cmd_comment_unhide, "show a hidden comment to everyone again")):
-        add(name, fn, help, under=csub).add_argument("comment", metavar="comment-id", help="the comment's full id")
+    # `comment hide|unhide <comment-id>` (cmd_comment_hide/unhide below) goes through cli.py's `comment`,
+    # which also comments on a task.
 
 
 def register_admin(admsub, add) -> None:

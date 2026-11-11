@@ -80,6 +80,41 @@ handle is a 409 with a message telling them to verify it on the website. `dashbo
 `removed` / `unchanged` / `failed` for the task's card on the website dashboard. The Join & Follow
 routes answer 403 for a project the member can't see; the CLI then names the nearest one they can.
 
+## Project-management tasks
+
+`GET /projects` and `GET /projects/{p}` give each project's `taskModel`: `"project_management"` or
+`"catalog"`.
+
+- **Catalog projects** answer the routes above as they always have.
+- **Project-management projects** answer `tasks`, `unclaimed`, `tasks/{t}`, `claim` and `release`
+  in the new shapes (`model: "project_management"`).
+- **New routes** (`state`, `comments`, `propose`, `approve`, …) are project management's alone. On a
+  catalog project they're a 409 "`<project>` hasn't moved to project management yet."
+
+A task is named by its number: `{t}` is `12`, `<project>#12` (URL-encoded) or its id. The platform's
+`docs/contributor-api.md` has the full table. The responses the CLI prints are fixtures in
+`tests/fixtures/v1/`, written by the platform's route tests, so the two can't drift.
+
+| Command | Call |
+|---|---|
+| `tasks [--state S] [--milestone M] [--mine] [--all]` | `GET /projects/{p}/tasks` |
+| `task <n> [--feed]` | `GET /projects/{p}/tasks/{n}` |
+| `unclaimed` (= `tasks --state unclaimed`) | `GET /projects/{p}/unclaimed` |
+| `claim <n>`, `release <n>` (`unclaim`) | `POST …/tasks/{n}/claim`, `…/release` |
+| `move <n> <state>` | `PUT …/tasks/{n}/state { state }` |
+| `comment <n> <text>` | `POST …/tasks/{n}/comments { body, replyTo? }` |
+| `propose "<title>" [--take]`, `propose --draft <n>` | `POST /projects/{p}/tasks { start: "proposed" }`, `POST …/tasks/{n}/propose` |
+| `task new "<title>" [--open] [--milestone M]` | `POST /projects/{p}/tasks`, then `PUT …/milestone` |
+| `task new "<title>" --offer <who>` (leads) | the board's `POST /board/projects/{p}/tasks { start: "open", offerTo }` (below) |
+| `task proposals`, `task approve/send-back/decline/reopen/open <n>` | the list's `proposals`; `POST …/tasks/{n}/<action>` |
+| `task edit <n>`, `task milestone <n> <M\|none>`, `task subtask <n> "<title>"` | `PATCH …/tasks/{n}`, `PUT …/milestone`, `POST …/subtasks` |
+| `assign <n> <who>`, `unassign <n> <who>` | `POST …/tasks/{n}/owners { who }`, `DELETE …/owners/{who}` |
+| `mine [--all]` | `GET /me/tasks`, then `GET /me/claims` |
+
+A refusal prints the platform's message, then a hint of the CLI's own, indented and dim on a
+terminal (where to join, its owners, or the states you can pick). A CLI older than 0.3.0 gets 409
+`code: "cliUpdateRequired"` from these routes, and prints its message, which says how to update.
+
 ## Project management (`/board/…`, Leads run projects)
 
 A project's leads run its page (STA-304 to STA-311): its About, milestones, offers and moderation.

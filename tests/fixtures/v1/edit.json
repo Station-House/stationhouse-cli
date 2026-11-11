@@ -1,0 +1,95 @@
+{
+  "task": {
+    "model": "project_management",
+    "id": "00000000-0000-4000-8000-000000000018",
+    "number": 2,
+    "projectId": "marin-neuron-atlas",
+    "title": "Add 95% error bars to the Berg replication",
+    "state": "open",
+    "owners": [],
+    "milestone": {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "title": "Baseline evals"
+    },
+    "parentId": null,
+    "subtasks": {
+      "done": 0,
+      "total": 0
+    },
+    "mine": false,
+    "updatedAt": "2026-11-07T23:00:00.000Z",
+    "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/2",
+    "projectUrl": "http://localhost/projects/private/marin-neuron-atlas",
+    "body": "Bootstrap, 1000 resamples.",
+    "version": 2,
+    "author": {
+      "memberId": "sub-ada",
+      "name": "ada-tester",
+      "you": true
+    },
+    "parent": null,
+    "subtaskRows": [],
+    "proposal": null,
+    "feed": [
+      {
+        "kind": "created",
+        "id": "00000000-0000-4000-8000-000000000020",
+        "at": "2026-11-07T09:00:00.000Z",
+        "by": {
+          "memberId": "sub-ada",
+          "name": "ada-tester",
+          "you": true
+        },
+        "text": "you created it"
+      },
+      {
+        "kind": "opened",
+        "id": "00000000-0000-4000-8000-000000000021",
+        "at": "2026-11-07T09:00:00.000Z",
+        "by": {
+          "memberId": "sub-ada",
+          "name": "ada-tester",
+          "you": true
+        },
+        "text": "you opened it"
+      },
+      {
+        "kind": "milestone_changed",
+        "id": "00000000-0000-4000-8000-000000000022",
+        "at": "2026-11-07T16:00:00.000Z",
+        "by": {
+          "memberId": "sub-ada",
+          "name": "ada-tester",
+          "you": true
+        },
+        "text": "you put it in Baseline evals"
+      },
+      {
+        "kind": "edited",
+        "id": "00000000-0000-4000-8000-000000000126",
+        "at": "2026-11-07T23:00:00.000Z",
+        "by": {
+          "memberId": "sub-ada",
+          "name": "ada-tester",
+          "you": true
+        },
+        "text": "you edited it (version 1 → 2)"
+      }
+    ],
+    "following": true,
+    "can": {
+      "claim": true,
+      "release": false,
+      "states": [
+        "completed"
+      ],
+      "edit": true,
+      "decide": false,
+      "reopen": false,
+      "propose": false,
+      "addOwners": true,
+      "removeOwners": false,
+      "changeSubtasks": true
+    }
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "task": {
+    "model": "project_management",
+    "id": "00000000-0000-4000-8000-000000000050",
+    "number": 6,
+    "projectId": "marin-neuron-atlas",
+    "title": "Collect failure cases from the discussions",
+    "state": "open",
+    "owners": [],
+    "milestone": {
+      "id": "00000000-0000-4000-8000-000000000004",
+      "title": "Elicitation"
+    },
+    "parentId": null,
+    "subtasks": {
+      "done": 0,
+      "total": 0
+    },
+    "mine": false,
+    "updatedAt": "2026-11-07T09:00:00.000Z",
+    "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/6",
+    "projectUrl": "http://localhost/projects/private/marin-neuron-atlas",
+    "body": "",
+    "version": 1,
+    "author": {
+      "memberId": "sub-ada",
+      "name": "ada-tester",
+      "you": true
+    },
+    "parent": null,
+    "subtaskRows": [],
+    "proposal": null,
+    "feed": [
+      {
+        "kind": "created",
+        "id": "00000000-0000-4000-8000-000000000052",
+        "at": "2026-11-07T09:00:00.000Z",
+        "by": {
+          "memberId": "sub-ada",
+          "name": "ada-tester",
+          "you": true
+        },
+        "text": "you created it"
+      },
+      {
+        "kind": "opened",
+        "id": "00000000-0000-4000-8000-000000000053",
+        "at": "2026-11-07T09:00:00.000Z",
+        "by": {
+          "memberId": "sub-ada",
+          "name": "ada-tester",
+          "you": true
+        },
+        "text": "you opened it"
+      },
+      {
+        "kind": "milestone_changed",
+        "id": "00000000-0000-4000-8000-000000000131",
+        "at": "2026-11-07T16:00:00.000Z",
+        "by": {
+          "memberId": "sub-ada",
+          "name": "ada-tester",
+          "you": true
+        },
+        "text": "you put it in Elicitation"
+      }
+    ],
+    "following": true,
+    "can": {
+      "claim": true,
+      "release": false,
+      "states": [
+        "completed"
+      ],
+      "edit": true,
+      "decide": false,
+      "reopen": false,
+      "propose": false,
+      "addOwners": true,
+      "removeOwners": false,
+      "changeSubtasks": true
+    }
+  }
+}

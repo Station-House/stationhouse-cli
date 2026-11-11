@@ -1,4 +1,5 @@
 import argparse
+import urllib.parse
 import contextlib
 import difflib
 import getpass
@@ -13,13 +14,15 @@ from datetime import datetime
 from importlib import resources
 from pathlib import Path
 
-from . import __version__, chat, config, design, explore as explore_mod, following, gate, inbox, leads, projects, traces, train, versioncheck, wizard, work
+from . import __version__, chat, config, design, explore as explore_mod, following, gate, inbox, leads, pm, projects, traces, train, versioncheck, wizard, work
 from .auth import (AuthError, DeviceLoginUnavailable, WrongCodeError, current_credentials, device_login,
                    is_platform_page, login, login_with_email_code, normalize_email, request_email_code, sign_out)
 from .client import ApiError, UpgradeRequired, request
 from .store import clear_credentials, load_credentials
 
-TASK_ID = r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+# A catalog task's id, a project-management task's number (`12`, `#12`, `llm-self-attribution#12`)
+# or its full id.
+TASK_ID = r"^(?:(?:[A-Za-z0-9][A-Za-z0-9-]{0,63})?#)?[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
 
 
 def _emit(args, data, human):
@@ -148,7 +151,11 @@ def cmd_project(args):
 
 
 def cmd_unclaimed(args):
-    out = request("GET", projects.project_path(projects.resolve(args.project), "/unclaimed"))
+    project = projects.resolve(args.project)
+    out = request("GET", projects.project_path(project, "/unclaimed"))
+    if pm.is_pm(out):
+        _emit(args, out, lambda d: pm.render_list(pm.filtered(d, {"open"}), project, unclaimed=True))
+        return
 
     def human(d):
         tasks = d.get("tasks", [])
@@ -159,6 +166,45 @@ def cmd_unclaimed(args):
             if t.get("summary"):
                 print(f"    {t['summary']}")
     _emit(args, out, human)
+
+
+def cmd_tasks(args):
+    project = projects.resolve(args.project)
+    out = request("GET", projects.project_path(project, "/tasks"))
+    if not pm.is_pm(out):
+        if args.state or args.milestone or args.mine:
+            raise ApiError(f"{project} hasn't moved to project management yet, so its tasks can't be filtered. "
+                           "Try `stationhouse unclaimed` or `stationhouse find-work`.")
+        _emit(args, out, pm.render_catalog_list)
+        return
+    try:
+        states = pm.parse_states(args.state)
+    except ValueError as e:
+        raise ApiError(str(e)) from None
+    milestone = _milestone(out, args.milestone)["id"] if args.milestone else None
+    shown = pm.filtered(out, states, milestone, args.mine, args.all)
+    # --json: the platform's answer as it is, or narrowed as asked.
+    _emit(args, pm.as_json(shown) if shown["narrowed"] else out, lambda d: pm.render_list(shown, project))
+
+
+def _milestone(task_list, text):
+    """The one milestone `text` names in a project's task list (the start of its title, or its id)."""
+    milestones = task_list.get("milestones", [])
+    found = pm.match_milestone(milestones, text)
+    if not found:
+        names = ", ".join(m["title"] for m in milestones) or "none yet"
+        raise ApiError(f"No milestone matches {text!r}. This project's: {names}.")
+    if len(found) > 1:
+        raise ApiError(f"{text!r} matches {', '.join(m['title'] for m in found)}. Say which.")
+    return found[0]
+
+
+def cmd_task_show(args):
+    project, out = projects.task_call("GET", args.task_id, "", args.project)
+    if pm.is_pm(out):
+        _emit(args, out, lambda d: pm.render_task(d, whole_feed=args.feed))
+    else:
+        _emit(args, out, pm.render_catalog_task)
 
 
 def cmd_who(args):
@@ -227,17 +273,24 @@ def cmd_prs(args):
 
 
 def cmd_mine(args):
-    out = request("GET", "/api/v1/me/claims")
-
-    def human(d):
-        claims = d.get("claims", [])
-        if not claims:
-            print("You haven't claimed anything.")
-        for c in claims:
-            where = f"{c['projectId']}/" if c.get("projectId") else ""
-            title = f"  {c['title']}" if c.get("title") else ""
-            print(f"{where}{c['taskId']}{title}  ({c.get('status', 'ACTIVE').lower()}{', stale' if c.get('stale') else ''})")
-    _emit(args, out, human)
+    """Your project-management tasks, by project (GET /me/tasks), then your catalog claims as before."""
+    project_management = True
+    try:
+        owned = request("GET", "/api/v1/me/tasks", query={"all": "1"} if args.all else None)
+    except ApiError as e:
+        if e.status != 404:  # an older platform, without project management: just the claims
+            raise
+        owned, project_management = {"tasks": []}, False
+    try:
+        claims = request("GET", "/api/v1/me/claims")
+    except ApiError as e:
+        # No verified HF handle (409) means no catalog claims. Where project management runs, that's
+        # no reason to fail: the tasks you own don't need one.
+        if e.status != 409 or not project_management:
+            raise
+        claims = {"claims": []}
+    data = {"tasks": owned["tasks"], "claims": claims.get("claims", [])}
+    _emit(args, data, lambda d: pm.render_mine(d, everything=args.all))
 
 
 def cmd_inbox(args):
@@ -283,8 +336,27 @@ CARD_REMOVED = {
 }
 
 
+def _task_write(args, method, suffix, body=None, hint=None, task_arg="task_id"):
+    """A write to one task. A project-management task's refusal gets the CLI's hint under the
+    Board's message (`hint(message, task)`, from the task as the caller sees it)."""
+    ref = getattr(args, task_arg)
+    try:
+        return projects.task_call(method, ref, suffix, args.project, body)
+    except ApiError as e:
+        if hint and e.status in (403, 404, 409):
+            try:
+                _, seen = projects.task_call("GET", ref, "", args.project)
+            except ApiError:
+                seen = None
+            if pm.is_pm(seen):
+                e.hint = hint(str(e), seen["task"])
+        raise
+
+
 def cmd_claim(args):
-    _, out = projects.task_call("POST", args.task_id, "/claim", args.project)
+    _, out = _task_write(args, "POST", "/claim", hint=pm.claim_hint)
+    if pm.is_pm(out):
+        return _emit(args, out, lambda d: pm.render_claim(d, args.task_id))
 
     def human(d):
         print(f"You're on {d.get('taskId', args.task_id)}.")
@@ -298,13 +370,151 @@ def cmd_claim(args):
 
 
 def cmd_release(args):
-    _, out = projects.task_call("POST", args.task_id, "/release", args.project)
+    _, out = _task_write(args, "POST", "/release", hint=pm.release_hint)
+    if pm.is_pm(out):
+        return _emit(args, out, lambda d: pm.render_release(d, args.task_id))
 
     def human(d):
         print(f"Released {args.task_id}.")
         if d.get("dashboard") in CARD_REMOVED:
             print(CARD_REMOVED[d["dashboard"]])
     _emit(args, out, human)
+
+
+def cmd_move(args):
+    try:
+        state = pm.parse_move(args.state)
+    except ValueError as e:
+        raise ApiError(str(e)) from None
+    _, out = _task_write(args, "PUT", "/state", {"state": state}, hint=lambda _, task: pm.move_hint(state, task))
+    _emit(args, out, lambda d: pm.render_move(d, args.task_id))
+
+
+def _body(args):
+    """A task's body from -b TEXT or --body-file F (`-`: stdin); empty when neither is given."""
+    if getattr(args, "body_file", None):
+        if args.body_file == "-":
+            return sys.stdin.read()
+        try:
+            with open(args.body_file, encoding="utf-8") as f:
+                return f.read()
+        except OSError as e:
+            raise ApiError(f"Couldn't read {args.body_file}: {e.strerror}.") from None
+    return getattr(args, "body", None) or ""
+
+
+def _task_model(project):
+    """The project's task model, or None when the platform doesn't say (an older platform)."""
+    try:
+        detail = request("GET", projects.project_path(project))
+    except ApiError:
+        return None
+    return (detail.get("project") or {}).get("taskModel") if isinstance(detail, dict) else None
+
+
+def _pm_project(flag):
+    """The project to write a new task in; a catalog project's tasks are requested instead."""
+    project = projects.resolve(flag)
+    if _task_model(project) != pm.PM:
+        e = ApiError(f"{project} hasn't moved to project management yet.")
+        e.hint = 'Ask for a task there: stationhouse task request "<title>" -d "<why>"'
+        raise e
+    return project
+
+
+def cmd_propose(args):
+    if args.draft:
+        if args.title:
+            raise ApiError("Name the draft or a new title, not both: stationhouse propose --draft <number>")
+        project, out = _task_write(args, "POST", "/propose", {"willTake": args.take}, task_arg="draft")
+        typed = args.draft
+    else:
+        title = " ".join(args.title).strip()
+        if not title:
+            raise ApiError('Say what to propose: stationhouse propose "<title>" (or --draft <number> for a Draft you wrote).')
+        project = _pm_project(args.project)
+        out = request("POST", projects.project_path(project, "/tasks"),
+                      {"title": title, "body": _body(args), "start": "proposed", "willTake": args.take})
+        typed = f"{project}#{out['task']['number']}" if args.project else str(out["task"]["number"])
+    _emit(args, out, lambda d: pm.render_proposed(d, project, typed))
+
+
+def cmd_task_new(args):
+    if args.offer:
+        # Offered on create (STA-307): leads only, an Open task, through the board's route that takes the offer.
+        return leads.cmd_task_new(argparse.Namespace(**{**vars(args), "body": _body(args)}))
+    title = " ".join(args.title).strip()
+    project = _pm_project(args.project)
+    milestone = _milestone(request("GET", projects.project_path(project, "/tasks")), args.milestone) if args.milestone else None
+    out = request("POST", projects.project_path(project, "/tasks"),
+                  {"title": title, "body": _body(args), "start": "open" if args.open else "draft"})
+    typed = f"{project}#{out['task']['number']}" if args.project else str(out["task"]["number"])
+    if milestone:
+        # A second call: the task exists whatever it answers, so a failure here must say so.
+        try:
+            out = request("PUT", projects.project_path(project, f"/tasks/{out['task']['id']}/milestone"), {"milestoneId": milestone["id"]})
+        except ApiError as e:
+            _emit(args, out, lambda d: pm.render_new(d, project, typed))
+            what = "Draft" if out["task"]["state"] == "draft" else "task"
+            failed = ApiError(f"{what} #{out['task']['number']} was created without its milestone ({milestone['title']}): {e}", e.status, e.body)
+            failed.hint = f'Set it: stationhouse task milestone {typed} "{milestone["title"]}"'
+            raise failed from None
+    _emit(args, out, lambda d: pm.render_new(d, project, typed))
+
+
+def _decision(suffix, body_of=None, method="POST"):
+    """A lead's action on one task (open, send-back, decline, reopen): the Board's answer, printed."""
+    def run(args):
+        _, out = _task_write(args, method, suffix, body_of(args) if body_of else None)
+        _emit(args, out, lambda d: pm.render_decision(suffix.strip("/"), d, args.task_id))
+    return run
+
+
+cmd_task_open = _decision("/open")
+cmd_task_send_back = _decision("/send-back", lambda a: {"comment": a.message})
+cmd_task_reopen = _decision("/reopen")
+
+
+def cmd_task_decline(args):
+    body = {"reason": args.reason}
+    if args.duplicate_of:
+        duplicate = args.duplicate_of.strip()
+        named, _ = pm.split_ref(duplicate)
+        if named:
+            # The platform takes a duplicate in the proposal's project only. Say so before asking it.
+            target = pm.split_ref(args.task_id)[0] or projects.chosen(args.project)
+            if target is None and pm.is_number(args.task_id):
+                target = projects.resolve(args.project)
+            if target is not None and named != target:
+                raise ApiError(f"The duplicate must be a task in {target}, the proposal's project: "
+                               f"{duplicate} is in {named}. Decline it without --duplicate-of, and say where in --reason.")
+        body["duplicateOf"] = duplicate
+    _, out = _task_write(args, "POST", "/decline", body)
+    _emit(args, out, lambda d: pm.render_decision("decline", d, args.task_id))
+
+
+COMMENT_MODERATION = {"hide": leads.cmd_comment_hide, "unhide": leads.cmd_comment_unhide}
+
+
+def cmd_comment(args):
+    if args.task_id in COMMENT_MODERATION:
+        # `comment hide|unhide <comment-id>`: a lead's moderation (STA-311), not a comment on a task.
+        if len(args.text) != 1:
+            raise ApiError(f"Say which comment: stationhouse comment {args.task_id} <comment-id> (its full id).")
+        return COMMENT_MODERATION[args.task_id](argparse.Namespace(**{**vars(args), "comment": args.text[0]}))
+    if args.file:
+        text = _body(argparse.Namespace(body_file=args.file))
+    elif args.text == ["-"]:
+        text = sys.stdin.read()
+    else:
+        text = " ".join(args.text)
+    if not text.strip():
+        raise ApiError('Say something: stationhouse comment <number> "<text>" (or --file F, or - for stdin).')
+    body = {"body": text}
+    if args.reply_to:
+        body["replyTo"] = args.reply_to
+    _, out = _task_write(args, "POST", "/comments", body)
+    _emit(args, out, lambda d: pm.render_comment(d, bool(args.reply_to)))
 
 
 # Neuron claims exist only in the Marin Neuron Atlas: one holder per neuron, 7 days from the last
@@ -403,6 +613,10 @@ def cmd_task_request(args):
     if args.atomic_unit:
         body["atomicUnit"] = args.atomic_unit
     project = projects.resolve(args.project)
+    if _task_model(project) == pm.PM:
+        e = ApiError(f"{project} runs project management: propose the task to its leads instead.")
+        e.hint = f'stationhouse propose "{title}" -b "<what and why>"'
+        raise e
     out = request("POST", projects.project_path(project, "/requests"), body)
 
     def human(d):
@@ -416,6 +630,11 @@ def cmd_task_request(args):
 
 
 def cmd_task_proposals(args):
+    project = projects.chosen(args.project)
+    if project and _task_model(project) == pm.PM:
+        listed = request("GET", projects.project_path(project, "/tasks"))
+        if pm.is_pm(listed):
+            return _emit(args, {"proposals": listed.get("proposals", [])}, lambda d: pm.render_proposals(listed, project))
     out = request("GET", "/api/v1/proposals")
 
     def human(d):
@@ -432,6 +651,15 @@ def cmd_task_proposals(args):
 
 
 def cmd_task_approve(args):
+    if pm.is_number(pm.split_ref(args.proposal_id)[1]):
+        # A project-management Proposal, by its number: into a milestone too, with --milestone.
+        args.task_id = args.proposal_id
+        body = {}
+        if args.milestone:
+            project = pm.split_ref(args.task_id)[0] or projects.resolve(args.project)
+            body["milestoneId"] = _milestone(request("GET", projects.project_path(project, "/tasks")), args.milestone)["id"]
+        _, out = _task_write(args, "POST", "/approve", body)
+        return _emit(args, out, lambda d: pm.render_decision("approve", d, args.task_id))
     out = request("POST", "/api/v1/proposals/approve", {"proposalId": args.proposal_id})
 
     def human(d):
@@ -449,7 +677,9 @@ def cmd_task_reject(args):
 
 
 def _tree(args):
-    return request("GET", projects.project_path(projects.resolve(args.project), "/tasks"))
+    """The project's tasks as `explore` reads them; a project-management list in the same shape."""
+    tree = request("GET", projects.project_path(projects.resolve(args.project), "/tasks"))
+    return pm.as_tree(tree) if pm.is_pm(tree) else tree
 
 
 def _answer(question, tree):
@@ -477,6 +707,14 @@ def cmd_explore(args):
 
 
 def cmd_find_work(args):
+    project = projects.resolve(args.project)
+    if _task_model(project) == pm.PM:
+        listed = request("GET", projects.project_path(project, "/unclaimed"))
+        # Retired on project-management projects (STA-328): the open tasks are `tasks --state unclaimed`.
+        def human(d):
+            pm.render_list(pm.filtered(d, {"open"}), project, unclaimed=True)
+            print(pm.dim("find-work is now: stationhouse tasks --state unclaimed (or stationhouse unclaimed)"))
+        return _emit(args, listed, human)
     tree = _tree(args)
     out = work.suggest(tree, " ".join(args.about), args.limit)
     by_id = {t["taskId"]: t for t in tree["tasks"]}
@@ -509,6 +747,7 @@ def _offline_answer(project_fn):
     def answer(question):
         try:
             tree = request("GET", projects.project_path(projects.resolve(project_fn()), "/tasks"))
+            tree = pm.as_tree(tree) if pm.is_pm(tree) else tree
             # Deterministic only: a quick, honest answer from the list, never a slow local model.
             result, by_id = _answer(question, tree)
             _print_answer(result, by_id)
@@ -558,6 +797,10 @@ def _inbox_line(project):
 
 
 def cmd_assign(args):
+    if pm.names_pm_task(args.task_id):
+        # A project-management task (by number): its owners and the project's leads add an owner.
+        _, out = _task_write(args, "POST", "/owners", {"who": args.handle})
+        return _emit(args, out, lambda d: pm.render_owners(d, args.handle, added=True))
     _, out = projects.task_call("POST", args.task_id, "/assign", args.project, {"hfUsername": args.handle.lstrip("@")})
     _emit(args, out, lambda d: print(f"Assigned {args.handle.lstrip('@')} to {args.task_id}."))
 
@@ -593,6 +836,44 @@ def cmd_admin_cli_min_version(args):
     minimum = (out or {}).get("value") or None
     _emit(args, {"minimum": minimum}, lambda d: print(
         f"CLIs below {d['minimum']} are blocked." if d["minimum"] else "No minimum: every CLI version is served."))
+
+
+def cmd_unassign(args):
+    who = urllib.parse.quote(args.handle.lstrip("@"), safe="")
+    _, out = _task_write(args, "DELETE", f"/owners/{who}")
+    _emit(args, out, lambda d: pm.render_owners(d, args.handle, added=False))
+
+
+def cmd_task_edit(args):
+    if args.title is None and args.body is None and args.body_file is None:
+        raise ApiError("Say what to change: --title, -b/--body or --body-file.")
+    _, seen = projects.task_call("GET", args.task_id, "", args.project)
+    if not pm.is_pm(seen):
+        raise ApiError("Only project-management tasks are edited here; edit a catalog task on the website.")
+    t = seen["task"]
+    edit = {"title": args.title if args.title is not None else t["title"],
+            "body": _body(args) if (args.body is not None or args.body_file) else t["body"],
+            "baseVersion": t["version"]}
+    _, out = _task_write(args, "PATCH", "", edit)
+    _emit(args, out, lambda d: print(f"Saved {pm.named(d['task'])}."))
+
+
+def cmd_task_milestone(args):
+    project = pm.split_ref(args.task_id)[0] or projects.resolve(args.project)
+    if args.milestone.strip().lower() in ("none", "-"):
+        milestone = None
+    else:
+        milestone = _milestone(request("GET", projects.project_path(project, "/tasks")), args.milestone)["id"]
+    _, out = _task_write(args, "PUT", "/milestone", {"milestoneId": milestone})
+    _emit(args, out, lambda d: pm.render_milestone(d))
+
+
+def cmd_task_subtask(args):
+    if not pm.names_pm_task(args.task_id):
+        raise ApiError(f"On a catalog project, propose a subtask instead: stationhouse task create {args.task_id} <title> -s <summary>")
+    title = " ".join(args.title).strip()
+    _, out = _task_write(args, "POST", "/subtasks", {"title": title, "body": _body(args)})
+    _emit(args, out, lambda d: pm.render_subtask(d, title, args.task_id))
 
 
 def cmd_train(args):
@@ -935,6 +1216,12 @@ def cmd_agents_md(args):
     print(f"{'Updated' if existing else 'Wrote'} the stationhouse sections of {path}")
 
 
+def _body_args(sp):
+    g = sp.add_mutually_exclusive_group()
+    g.add_argument("-b", "--body", help="what it is and when it's done (markdown)")
+    g.add_argument("--body-file", metavar="FILE", help="read the body from FILE (- for stdin)")
+
+
 def build_parser():
     p = argparse.ArgumentParser(
         prog="stationhouse",
@@ -974,10 +1261,16 @@ def build_parser():
     pj = add("project", cmd_project, "show the project you're working in, or `project use <id>` / `project clear`")
     pj.add_argument("action", nargs="?", choices=["show", "use", "clear"], default="show")
     pj.add_argument("project_id", nargs="?", metavar="project-id")
-    project(add("unclaimed", cmd_unclaimed, "open tasks nobody is on"))
+    project(add("unclaimed", cmd_unclaimed, "open tasks nobody is on (same as `tasks --state unclaimed`)"))
+    ts = project(add("tasks", cmd_tasks, "the project's tasks by milestone, Proposed apart (each with its number)"))
+    ts.add_argument("--state", help="only these states, comma-separated: open (or unclaimed), claimed, doing, review, done, proposed, draft")
+    ts.add_argument("--milestone", help="only this milestone (the start of its title, or its id)")
+    ts.add_argument("--mine", action="store_true", help="only the tasks you own")
+    ts.add_argument("--all", action="store_true", help="Completed ones too")
     add("who", cmd_who, "who is working on a task", task=True)
     add("context", cmd_context, "a task's neighbourhood: people, PRs and their latest comments", task=True)
-    add("mine", cmd_mine, "tasks you have claimed")
+    add("mine", cmd_mine, "every task you're on, in every project").add_argument(
+        "--all", action="store_true", help="Completed ones too")
     ib = project(add("inbox", cmd_inbox, "PRs and discussions waiting on you: feedback, replies, mentions",
                      aliases=["follow-ups", "todo"]))
     ib.add_argument("action", nargs="?", choices=["list", "done"], default="list")
@@ -994,12 +1287,28 @@ def build_parser():
             jf.add_argument("--page", metavar="id", help="a page (a post, task or update) instead of a project")
     add("following", cmd_following, "the projects you joined or follow, and the pages you follow")
     add("claim", cmd_claim, "claim a task (same as `task claim`)", task=True)
-    add("release", cmd_release, "release a task you claimed (same as `task release`)", task=True)
-    a = add("assign", cmd_assign, "admins only: put someone on a task", task=True)
-    a.add_argument("handle", help="their Hugging Face username")
+    add("release", cmd_release, "release a task you claimed (same as `task release`)", task=True, aliases=["unclaim"])
+    cm = add("comment", cmd_comment, "comment on a task (- reads stdin); leads: comment hide|unhide <comment-id>", task=True)
+    cm.add_argument("text", nargs="*", help="what you want to say")
+    cm.add_argument("--file", metavar="FILE", help="read the comment from FILE (- for stdin)")
+    cm.add_argument("--reply-to", metavar="comment-id", help="reply to this comment (its id, from task <number> --json)")
+    add("move", cmd_move, "move a task you own: claimed, doing, review or open (leads: done too)", task=True).add_argument(
+        "state", help="claimed, doing, review (or in-review), done (or completed), open")
+    a = add("assign", cmd_assign, "add an owner to a task (its owners and leads; catalog tasks: admins)", task=True)
+    a.add_argument("handle", help="their Hugging Face username (project-management tasks: or email)")
+    u = add("unassign", cmd_unassign, "leads: take an owner off a task (yourself: same as release)", task=True)
+    u.add_argument("handle", help="their Hugging Face username or email")
 
-    t = sub.add_parser("task", help="claim, create or request tasks")
+    pp = project(add("propose", cmd_propose, "propose a task to the project's leads (--take: you'll take it)"))
+    pp.add_argument("title", nargs="*")
+    _body_args(pp)
+    pp.add_argument("--take", action="store_true", help="you'll take it: once it's approved you're its owner")
+    pp.add_argument("--draft", metavar="number", help="propose a Draft you wrote instead")
+
+    t = sub.add_parser("task", help="one task (`task 12`), or claim, create or request tasks")
     tsub = t.add_subparsers(dest="task_cmd", required=True)
+    add("show", cmd_task_show, "one task: state, owners, body, subtasks, the latest activity (also `task <number>`)",
+        task=True, under=tsub).add_argument("--feed", action="store_true", help="all of its activity, not just the last 5")
     add("claim", cmd_claim, "claim an existing task or subtask; it shows on your dashboard", task=True, under=tsub)
     add("release", cmd_release, "release a task you claimed; it comes off your dashboard", task=True, under=tsub)
     c = project(add("create", cmd_task_create, "propose a SUBTASK of an existing task (an admin approves it)", under=tsub))
@@ -1011,11 +1320,35 @@ def build_parser():
     r.add_argument("-d", "--description", required=True, help="what the task is and why it's worth doing")
     r.add_argument("--atomic-unit", help="the smallest unit of contribution someone could make")
     project(r)
-    add("proposals", cmd_task_proposals, "admins only: subtask proposals waiting for review", under=tsub)
-    for name, fn, help in (("approve", cmd_task_approve, "admins only: create the proposed subtask"),
-                           ("reject", cmd_task_reject, "admins only: decline a proposed subtask")):
-        add(name, fn, help, under=tsub).add_argument("proposal_id", metavar="proposal-id")
-    # Leads run projects (STA-304 to STA-312): about, milestones, task new, offers, post/comment moderation, admin.
+    project(add("proposals", cmd_task_proposals, "the Proposals waiting for a lead (catalog projects: admins' subtask proposals)", under=tsub))
+    ap = add("approve", cmd_task_approve, "leads: approve a Proposal by its number (catalog: admins create a proposed subtask)", under=tsub)
+    ap.add_argument("proposal_id", metavar="number", help="the Proposal's number (catalog: the proposal id)")
+    ap.add_argument("--milestone", help="put it in this milestone as you approve it (the start of its title)")
+    project(ap)
+    add("reject", cmd_task_reject, "admins only: decline a proposed subtask (catalog projects)", under=tsub).add_argument("proposal_id", metavar="proposal-id")
+    tn = project(add("new", cmd_task_new, "write a task: a Draft (leads: --open to open it now)", under=tsub))
+    tn.add_argument("title", nargs="+")
+    _body_args(tn)
+    tn.add_argument("--open", action="store_true", help="leads: open it now, for anyone who joined to claim")
+    tn.add_argument("--milestone", help="put it in this milestone: the start of its title (with --offer, or its number)")
+    tn.add_argument("--offer", metavar="PERSON", help="leads: open it and offer it to this member: their name (or its start), or member id")
+    add("open", cmd_task_open, "leads: open a Draft", task=True, under=tsub)
+    add("send-back", cmd_task_send_back, "leads: send a Proposal back to its author as a Draft, with your comment",
+        task=True, under=tsub).add_argument("-m", "--message", required=True, help="your comment for its author")
+    dc = add("decline", cmd_task_decline, "leads: decline a Proposal", task=True, under=tsub)
+    dc.add_argument("--reason", required=True, help="why, for its author")
+    dc.add_argument("--duplicate-of", metavar="task", help="the task it duplicates, a task in this project: its number or id")
+    add("reopen", cmd_task_reopen, "leads: reopen a declined Proposal", task=True, under=tsub)
+    te = add("edit", cmd_task_edit, "change a task's title or body (leads; its author while it's a Draft or Proposed)", task=True, under=tsub)
+    te.add_argument("--title")
+    _body_args(te)
+    add("milestone", cmd_task_milestone, "put a task in a milestone (the start of its title), or none", task=True,
+        under=tsub).add_argument("milestone", help="the milestone, or none")
+    st = add("subtask", cmd_task_subtask, "add a subtask to a task you own (leads: any task)", task=True, under=tsub)
+    st.add_argument("title", nargs="+")
+    _body_args(st)
+    # Leads run projects (STA-304 to STA-312): about, milestones, offers, post/comment moderation, admin.
+    # `task new --offer` and `comment hide|unhide` are theirs too, reached through task new and comment above.
     leads.register(sub, tsub, add, project)
 
     n = sub.add_parser("neuron", help="Marin Neuron Atlas: claim a neuron so nobody else takes it")
@@ -1078,7 +1411,8 @@ def build_parser():
     e.add_argument("question", nargs="*", help="e.g. who is working on the scorer?")
     # explore no longer uses a local model at all; the flag is still accepted so old scripts don't break.
     e.add_argument("--no-llm", action="store_true", help=argparse.SUPPRESS)
-    w = project(add("find-work", cmd_find_work, "pick an open task for you to do", aliases=["work"]))
+    w = project(add("find-work", cmd_find_work, "pick an open task for you to do (project management: tasks --state unclaimed)",
+                    aliases=["work"]))
     w.add_argument("about", nargs="*", help="what you're into, e.g. adversarial prompts")
     w.add_argument("--limit", type=int, default=3, help="how many tasks to suggest (default 3)")
     add("train", cmd_train, "watch the welcome train again")
@@ -1110,12 +1444,23 @@ QUESTION_STARTERS = {"who", "context", "claim", "release", "mine", "projects", "
                      "about", "milestones", "offers"}
 
 
+def _task_show(parser, argv):
+    """`task 12` is `task show 12`: argparse can't hold both `task <number>` and `task claim`."""
+    if len(argv) >= 2 and argv[0] == "task" and not argv[1].startswith("-"):
+        task = next(a for a in parser._actions if isinstance(a, argparse._SubParsersAction)).choices["task"]  # noqa: SLF001
+        names = _command_names(task)
+        if argv[1] not in names:
+            return ["task", "show", *argv[1:]]
+    return argv
+
+
 def _parse(parser, argv, questions=True):
     """Commands run as commands; anything else a person types is a question for the assistant.
     `stationhouse who add-question` is the `who` command; `stationhouse who is working on the scorer?`
     and `stationhouse what should I do next` are questions. A near-miss like `claimm x` is an error,
     not a question, so a typo never quietly goes to the assistant. questions=False (a /command typed
     in the chat) parses strictly."""
+    argv = _task_show(parser, argv)
     if not questions or not argv or argv[0].startswith("-"):
         return parser.parse_args(argv)
     if argv[0] == "help":
@@ -1168,6 +1513,10 @@ def main(argv=None, questions=True):
         return 1
     except (AuthError, ApiError) as e:
         print(f"error: {e}", file=sys.stderr)
+        hint = getattr(e, "hint", None)
+        if hint:
+            # The CLI's own line under the platform's message, grey (dim) on a terminal.
+            print(" " * len("error: ") + pm.dim(hint, sys.stderr), file=sys.stderr)
         return 1
     except TimeoutError:
         # A call that got no answer in time, wherever it was made: say so, don't dump a traceback.

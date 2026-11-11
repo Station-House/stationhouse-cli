@@ -102,7 +102,8 @@ def test_task_request_files_a_top_level_request(signed_in, api, capsys):
     api.routes[("POST", "/api/v1/projects/conspiracybench/requests")] = (201, {"requestId": "r", "created": True, "notified": True, "status": "PENDING"})
     code, out, _ = run(capsys, "task", "request", "Multilingual", "set", "-d", "Run it in five languages", "--atomic-unit", "one language")
     assert code == 0 and "Requested \"Multilingual set\"" in out and "Warning" not in out
-    assert api.calls[0]["body"] == {"title": "Multilingual set", "description": "Run it in five languages", "atomicUnit": "one language"}
+    posted = [c for c in api.calls if c["method"] == "POST"]
+    assert posted[0]["body"] == {"title": "Multilingual set", "description": "Run it in five languages", "atomicUnit": "one language"}
 
 
 def test_task_request_warns_when_the_maintainers_were_not_emailed(signed_in, api, capsys):

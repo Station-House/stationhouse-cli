@@ -1,0 +1,97 @@
+{
+  "task": {
+    "model": "project_management",
+    "id": "00000000-0000-4000-8000-000000000120",
+    "number": 13,
+    "projectId": "marin-neuron-atlas",
+    "title": "Re-run Petri with the new judge",
+    "state": "draft",
+    "owners": [],
+    "milestone": null,
+    "parentId": null,
+    "subtasks": {
+      "done": 0,
+      "total": 0
+    },
+    "mine": false,
+    "updatedAt": "2026-11-07T09:00:00.000Z",
+    "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/13",
+    "projectUrl": "http://localhost/projects/private/marin-neuron-atlas",
+    "body": "",
+    "version": 1,
+    "author": {
+      "memberId": "sub-bo",
+      "name": "bo-tester"
+    },
+    "parent": null,
+    "subtaskRows": [],
+    "proposal": {
+      "proposer": {
+        "memberId": "sub-bo",
+        "name": "bo-tester"
+      },
+      "proposedAt": "2026-11-07T09:00:00.000Z",
+      "willTake": false,
+      "declined": null
+    },
+    "feed": [
+      {
+        "kind": "created",
+        "id": "00000000-0000-4000-8000-000000000122",
+        "at": "2026-11-07T09:00:00.000Z",
+        "by": {
+          "memberId": "sub-bo",
+          "name": "bo-tester"
+        },
+        "text": "bo-tester created it"
+      },
+      {
+        "kind": "proposed",
+        "id": "00000000-0000-4000-8000-000000000123",
+        "at": "2026-11-07T09:00:00.000Z",
+        "by": {
+          "memberId": "sub-bo",
+          "name": "bo-tester"
+        },
+        "text": "bo-tester proposed it"
+      },
+      {
+        "kind": "sent_back",
+        "id": "00000000-0000-4000-8000-000000000128",
+        "at": "2026-11-07T16:00:00.000Z",
+        "by": {
+          "memberId": "sub-ada",
+          "name": "ada-tester",
+          "you": true
+        },
+        "text": "you sent it back"
+      },
+      {
+        "kind": "comment",
+        "id": "00000000-0000-4000-8000-000000000126",
+        "at": "2026-11-07T16:00:00.000Z",
+        "by": {
+          "memberId": "sub-ada",
+          "name": "ada-tester",
+          "you": true
+        },
+        "body": "Say which judge.",
+        "edited": false,
+        "replies": []
+      }
+    ],
+    "following": true,
+    "can": {
+      "claim": false,
+      "release": false,
+      "states": [],
+      "edit": false,
+      "decide": false,
+      "reopen": false,
+      "propose": false,
+      "addOwners": false,
+      "removeOwners": false,
+      "changeSubtasks": false
+    }
+  }
+}

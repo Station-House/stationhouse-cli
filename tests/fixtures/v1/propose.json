@@ -1,0 +1,77 @@
+{
+  "task": {
+    "model": "project_management",
+    "id": "00000000-0000-4000-8000-000000000129",
+    "number": 14,
+    "projectId": "marin-neuron-atlas",
+    "title": "Compare against a base model",
+    "state": "proposed",
+    "owners": [],
+    "milestone": null,
+    "parentId": null,
+    "subtasks": {
+      "done": 0,
+      "total": 0
+    },
+    "mine": false,
+    "updatedAt": "2026-11-07T09:00:00.000Z",
+    "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/14",
+    "projectUrl": "http://localhost/projects/private/marin-neuron-atlas",
+    "body": "Same items, base vs chat.",
+    "version": 1,
+    "author": {
+      "memberId": "sub-bo",
+      "name": "bo-tester",
+      "you": true
+    },
+    "parent": null,
+    "subtaskRows": [],
+    "proposal": {
+      "proposer": {
+        "memberId": "sub-bo",
+        "name": "bo-tester",
+        "you": true
+      },
+      "proposedAt": "2026-11-07T09:00:00.000Z",
+      "willTake": true,
+      "declined": null
+    },
+    "feed": [
+      {
+        "kind": "created",
+        "id": "00000000-0000-4000-8000-000000000131",
+        "at": "2026-11-07T09:00:00.000Z",
+        "by": {
+          "memberId": "sub-bo",
+          "name": "bo-tester",
+          "you": true
+        },
+        "text": "you created it"
+      },
+      {
+        "kind": "proposed",
+        "id": "00000000-0000-4000-8000-000000000132",
+        "at": "2026-11-07T09:00:00.000Z",
+        "by": {
+          "memberId": "sub-bo",
+          "name": "bo-tester",
+          "you": true
+        },
+        "text": "you proposed it"
+      }
+    ],
+    "following": true,
+    "can": {
+      "claim": false,
+      "release": false,
+      "states": [],
+      "edit": true,
+      "decide": false,
+      "reopen": false,
+      "propose": false,
+      "addOwners": false,
+      "removeOwners": false,
+      "changeSubtasks": false
+    }
+  }
+}

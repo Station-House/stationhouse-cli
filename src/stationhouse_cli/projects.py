@@ -7,7 +7,7 @@ commands: if it lives in another project, the platform says which and the call f
 """
 import urllib.parse
 
-from . import config
+from . import config, pm
 from .client import ApiError, request
 from .store import load_settings, save_settings
 
@@ -57,8 +57,15 @@ def project_path(project_id: str, suffix: str = "") -> str:
 
 def task_call(method: str, task_id: str, suffix: str = "", flag: str | None = None, body: dict | None = None) -> tuple[str, object]:
     """Calls /projects/<p>/tasks/<task_id><suffix>. Without --project, a task that turns out to be in
-    another project is followed there (the platform's 404 names it). Returns (project, response)."""
-    project = chosen(flag)
+    another project is followed there (the platform's 404 names it). Returns (project, response).
+
+    A project-management task is named by its number: `12` (or `#12`) in the project you're in,
+    `llm-self-attribution#12` in that one."""
+    named, task_id = pm.split_ref(task_id)
+    project = named or chosen(flag)
+    if project is None and pm.is_number(task_id):
+        # A number means nothing without its project: the only one you see, or the one you pick.
+        project = resolve(flag)
     if project is None:
         # No project picked: any visible one works as a starting point, since the platform redirects.
         projects = list_projects()
@@ -69,7 +76,7 @@ def task_call(method: str, task_id: str, suffix: str = "", flag: str | None = No
         return project, request(method, _task_path(project, task_id, suffix), body)
     except ApiError as e:
         moved = e.body.get("projectId") if e.status == 404 else None
-        if not moved or moved == project or flag:
+        if not moved or moved == project or flag or named:
             raise
         return moved, request(method, _task_path(moved, e.body.get("taskId") or task_id, suffix), body)
 

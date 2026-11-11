@@ -1,6 +1,6 @@
 {
   "name": "stationhouse",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Station House for Claude Code: the Experimentation Wizard (three rounds of design review the contributor answers in a form, required before an experiment push), the push gate, and the Station House skills.",
   "author": { "name": "Station House" },
   "homepage": "https://app.station-house.net/wizard",

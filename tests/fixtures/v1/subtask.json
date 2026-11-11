@@ -1,0 +1,281 @@
+{
+  "task": {
+    "model": "project_management",
+    "id": "00000000-0000-4000-8000-000000000026",
+    "number": 3,
+    "projectId": "marin-neuron-atlas",
+    "title": "Petri seed set v2",
+    "state": "in_review",
+    "owners": [
+      {
+        "memberId": "sub-eve",
+        "name": "eve-tester",
+        "you": true
+      }
+    ],
+    "milestone": {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "title": "Baseline evals"
+    },
+    "parentId": null,
+    "subtasks": {
+      "done": 2,
+      "total": 4
+    },
+    "mine": true,
+    "updatedAt": "2026-11-07T09:00:00.000Z",
+    "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/3",
+    "projectUrl": "http://localhost/projects/private/marin-neuron-atlas",
+    "body": "",
+    "version": 1,
+    "author": {
+      "memberId": "sub-ada",
+      "name": "ada-tester"
+    },
+    "parent": null,
+    "subtaskRows": [
+      {
+        "model": "project_management",
+        "id": "00000000-0000-4000-8000-000000000080",
+        "number": 9,
+        "projectId": "marin-neuron-atlas",
+        "title": "Seeds A",
+        "state": "completed",
+        "owners": [
+          {
+            "memberId": "sub-eve",
+            "name": "eve-tester",
+            "you": true
+          }
+        ],
+        "milestone": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "title": "Baseline evals"
+        },
+        "parentId": "00000000-0000-4000-8000-000000000026",
+        "subtasks": {
+          "done": 0,
+          "total": 0
+        },
+        "mine": true,
+        "updatedAt": "2026-11-08T06:00:00.000Z",
+        "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/9"
+      },
+      {
+        "model": "project_management",
+        "id": "00000000-0000-4000-8000-000000000085",
+        "number": 10,
+        "projectId": "marin-neuron-atlas",
+        "title": "Seeds B",
+        "state": "completed",
+        "owners": [
+          {
+            "memberId": "sub-eve",
+            "name": "eve-tester",
+            "you": true
+          }
+        ],
+        "milestone": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "title": "Baseline evals"
+        },
+        "parentId": "00000000-0000-4000-8000-000000000026",
+        "subtasks": {
+          "done": 0,
+          "total": 0
+        },
+        "mine": true,
+        "updatedAt": "2026-11-08T13:00:00.000Z",
+        "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/10"
+      },
+      {
+        "model": "project_management",
+        "id": "00000000-0000-4000-8000-000000000090",
+        "number": 11,
+        "projectId": "marin-neuron-atlas",
+        "title": "Seeds C",
+        "state": "open",
+        "owners": [],
+        "milestone": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "title": "Baseline evals"
+        },
+        "parentId": "00000000-0000-4000-8000-000000000026",
+        "subtasks": {
+          "done": 0,
+          "total": 0
+        },
+        "mine": false,
+        "updatedAt": "2026-11-08T20:00:00.000Z",
+        "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/11"
+      },
+      {
+        "model": "project_management",
+        "id": "00000000-0000-4000-8000-000000000127",
+        "number": 14,
+        "projectId": "marin-neuron-atlas",
+        "title": "Seeds D",
+        "state": "open",
+        "owners": [],
+        "milestone": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "title": "Baseline evals"
+        },
+        "parentId": "00000000-0000-4000-8000-000000000026",
+        "subtasks": {
+          "done": 0,
+          "total": 0
+        },
+        "mine": false,
+        "updatedAt": "2026-11-10T07:00:00.000Z",
+        "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/14"
+      }
+    ],
+    "proposal": null,
+    "feed": [
+      {
+        "kind": "created",
+        "id": "00000000-0000-4000-8000-000000000028",
+        "at": "2026-11-07T09:00:00.000Z",
+        "by": {
+          "memberId": "sub-ada",
+          "name": "ada-tester"
+        },
+        "text": "ada-tester created it"
+      },
+      {
+        "kind": "opened",
+        "id": "00000000-0000-4000-8000-000000000029",
+        "at": "2026-11-07T09:00:00.000Z",
+        "by": {
+          "memberId": "sub-ada",
+          "name": "ada-tester"
+        },
+        "text": "ada-tester opened it"
+      },
+      {
+        "kind": "milestone_changed",
+        "id": "00000000-0000-4000-8000-000000000030",
+        "at": "2026-11-07T16:00:00.000Z",
+        "by": {
+          "memberId": "sub-ada",
+          "name": "ada-tester"
+        },
+        "text": "ada-tester put it in Baseline evals"
+      },
+      {
+        "kind": "claimed",
+        "id": "00000000-0000-4000-8000-000000000077",
+        "at": "2026-11-07T23:00:00.000Z",
+        "by": {
+          "memberId": "sub-eve",
+          "name": "eve-tester",
+          "you": true
+        },
+        "text": "you claimed it"
+      },
+      {
+        "kind": "subtask_added",
+        "id": "00000000-0000-4000-8000-000000000083",
+        "at": "2026-11-08T06:00:00.000Z",
+        "by": {
+          "memberId": "sub-eve",
+          "name": "eve-tester",
+          "you": true
+        },
+        "text": "you added the subtask \"Seeds A\""
+      },
+      {
+        "kind": "subtask_added",
+        "id": "00000000-0000-4000-8000-000000000088",
+        "at": "2026-11-08T13:00:00.000Z",
+        "by": {
+          "memberId": "sub-eve",
+          "name": "eve-tester",
+          "you": true
+        },
+        "text": "you added the subtask \"Seeds B\""
+      },
+      {
+        "kind": "subtask_added",
+        "id": "00000000-0000-4000-8000-000000000093",
+        "at": "2026-11-08T20:00:00.000Z",
+        "by": {
+          "memberId": "sub-eve",
+          "name": "eve-tester",
+          "you": true
+        },
+        "text": "you added the subtask \"Seeds C\""
+      },
+      {
+        "kind": "subtask_completed",
+        "id": "00000000-0000-4000-8000-000000000097",
+        "at": "2026-11-09T03:00:00.000Z",
+        "by": {
+          "memberId": "sub-ada",
+          "name": "ada-tester"
+        },
+        "text": "ada-tester completed the subtask \"Seeds A\""
+      },
+      {
+        "kind": "subtask_completed",
+        "id": "00000000-0000-4000-8000-000000000101",
+        "at": "2026-11-09T10:00:00.000Z",
+        "by": {
+          "memberId": "sub-ada",
+          "name": "ada-tester"
+        },
+        "text": "ada-tester completed the subtask \"Seeds B\""
+      },
+      {
+        "kind": "state_changed",
+        "id": "00000000-0000-4000-8000-000000000102",
+        "at": "2026-11-09T17:00:00.000Z",
+        "by": {
+          "memberId": "sub-eve",
+          "name": "eve-tester",
+          "you": true
+        },
+        "text": "you moved it to Doing"
+      },
+      {
+        "kind": "state_changed",
+        "id": "00000000-0000-4000-8000-000000000104",
+        "at": "2026-11-10T00:00:00.000Z",
+        "by": {
+          "memberId": "sub-eve",
+          "name": "eve-tester",
+          "you": true
+        },
+        "text": "you moved it to In review"
+      },
+      {
+        "kind": "subtask_added",
+        "id": "00000000-0000-4000-8000-000000000130",
+        "at": "2026-11-10T07:00:00.000Z",
+        "by": {
+          "memberId": "sub-eve",
+          "name": "eve-tester",
+          "you": true
+        },
+        "text": "you added the subtask \"Seeds D\""
+      }
+    ],
+    "following": true,
+    "can": {
+      "claim": false,
+      "release": true,
+      "states": [
+        "claimed",
+        "doing"
+      ],
+      "edit": false,
+      "decide": false,
+      "reopen": false,
+      "propose": false,
+      "addOwners": true,
+      "removeOwners": false,
+      "changeSubtasks": true
+    }
+  }
+}

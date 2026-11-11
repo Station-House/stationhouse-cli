@@ -1,0 +1,30 @@
+{
+  "tasks": [
+    {
+      "model": "project_management",
+      "id": "00000000-0000-4000-8000-000000000010",
+      "number": 1,
+      "projectId": "marin-neuron-atlas",
+      "title": "Run the direct-ask baseline on 3 models",
+      "state": "doing",
+      "milestone": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "title": "Baseline evals"
+      },
+      "owners": [
+        {
+          "memberId": "sub-ada",
+          "name": "ada-tester"
+        },
+        {
+          "memberId": "sub-bo",
+          "name": "bo-tester",
+          "you": true
+        }
+      ],
+      "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/1",
+      "updatedAt": "2026-11-07T09:00:00.000Z",
+      "stateChangedAt": "2026-11-07T16:00:00.000Z"
+    }
+  ]
+}

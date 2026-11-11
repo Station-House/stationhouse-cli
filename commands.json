@@ -1,5 +1,5 @@
 {
-  "version": "0.2.0",
+  "version": "0.3.0",
   "commands": {
     "about": [
       "diff",
@@ -16,10 +16,7 @@
     "assign": [],
     "chat": [],
     "claim": [],
-    "comment": [
-      "hide",
-      "unhide"
-    ],
+    "comment": [],
     "context": [],
     "design": [
       "answer",
@@ -58,6 +55,7 @@
     ],
     "milestones": [],
     "mine": [],
+    "move": [],
     "neuron": [
       "claim",
       "mine",
@@ -75,6 +73,7 @@
     ],
     "project": [],
     "projects": [],
+    "propose": [],
     "prs": [],
     "release": [],
     "skills-install": [],
@@ -82,14 +81,25 @@
       "approve",
       "claim",
       "create",
+      "decline",
+      "edit",
+      "milestone",
       "new",
+      "open",
       "proposals",
       "reject",
       "release",
-      "request"
+      "reopen",
+      "request",
+      "send-back",
+      "show",
+      "subtask"
     ],
+    "tasks": [],
     "todo": [],
     "train": [],
+    "unassign": [],
+    "unclaim": [],
     "unclaimed": [],
     "unfollow": [],
     "who": [],

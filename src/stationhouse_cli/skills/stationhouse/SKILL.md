@@ -1,6 +1,6 @@
 ---
 name: stationhouse
-description: See the Station House projects the contributor can see and who is working on what in them, find work, find PRs to review, see what's waiting on them (feedback on their PRs, replies, mentions), see what's happening on a task, claim or release a task, propose a subtask, or request a new task for the signed-in contributor, using the `stationhouse` CLI. Use when asked "what should I do", "what should I work on", "anything waiting on me", "who is on X", "what's happening on X", "find me a PR to review", "claim X", "add a subtask to X", "can we have a task for Y", or "am I on anything".
+description: See the Station House projects the contributor can see and who is working on what in them, find work, find PRs to review, see what's waiting on them (feedback on their PRs, replies, mentions), see what's happening on a task, claim or release a task, move a task to Doing or In review, comment on one, propose a task or a subtask, or request a new task for the signed-in contributor, using the `stationhouse` CLI. Use when asked "what should I do", "what should I work on", "anything waiting on me", "who is on X", "what's happening on X", "find me a PR to review", "claim X", "add a subtask to X", "can we have a task for Y", or "am I on anything".
 ---
 
 # stationhouse: who is doing what
@@ -56,6 +56,37 @@ stationhouse neuron mine                    the neurons the contributor holds (a
 Neurons are different from tasks: one person holds a neuron at a time. Before explaining a Marin neuron,
 run `neuron claim` on it; a 409 means someone else holds it, so pick another. A claim lapses 7 days after its
 last activity unless a PR for it is open, and needs the contributor's GitHub verified on their profile.
+
+## Project-management projects
+
+Projects are moving from the older catalog to project management, one at a time. `stationhouse
+projects --json` says which model each runs (`taskModel`: `"project_management"` or `"catalog"`).
+
+On a project-management project:
+
+- **Naming tasks.** Tasks have numbers: name one `12` in the project the contributor works in, or
+  `<project>#12`. Never write `#12` alone in a shell command, because `#` starts a comment.
+- **What to run.**
+  - `tasks --json` lists them by milestone (`--state unclaimed`, `--mine`, `--milestone`).
+  - `task <n> --json` shows one in full; `can.states` says where the contributor may move it.
+  - `claim <n>`, `move <n> doing|review`, `comment <n> "<text>"`, `release <n>`.
+  - `propose "<title>" -b "<what and why>" [--take]` asks the leads for a new task.
+  - `mine --json` lists every task they own, by project.
+- **find-work** there just lists the open tasks. Pick from `tasks --state unclaimed --json` yourself.
+- **Errors.** A refusal is the platform's message, followed by an indented hint (who owns it, which
+  states they can pick). Report both.
+- **Ask first.** Claim, move, comment and propose only after the contributor agrees: each is done
+  under their name, and claiming also makes them follow the task.
+
+```
+stationhouse tasks [--state S] [--milestone M] [--mine] [--all]
+stationhouse task <n> [--feed]
+stationhouse claim|release <n>
+stationhouse move <n> claimed|doing|review|done|open
+stationhouse comment <n> "<text>"           (or - to read stdin)
+stationhouse propose "<title>" [-b TEXT | --body-file F] [--take]
+stationhouse mine [--all]
+```
 
 ## Projects
 
@@ -132,6 +163,10 @@ new|check|guide`. It's installed alongside this one.
 - `error: You aren't signed in` or `session has expired`: ask the human to run `stationhouse login`.
 - `This Station House server doesn't support that yet`: the platform hasn't shipped that command;
   tell the contributor and don't retry.
+- `<project> hasn't moved to project management yet`: it's a catalog project; use the catalog
+  commands (`unclaimed`, `claim <task-id>`, `task request`).
+- `This project's tasks moved to project management. Update the CLI: …`: ask the human to run the
+  update command it gives, then try again.
 - Only an admin can `assign`, `task proposals`, `task approve` or `task reject`. If it is refused, say
   so; don't look for a workaround.
 - `Warning: ... couldn't put its card on your dashboard`: the claim went through but the website card

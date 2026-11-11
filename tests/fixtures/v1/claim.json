@@ -1,0 +1,98 @@
+{
+  "task": {
+    "model": "project_management",
+    "id": "00000000-0000-4000-8000-000000000018",
+    "number": 2,
+    "projectId": "marin-neuron-atlas",
+    "title": "Add error bars to the Berg replication",
+    "state": "claimed",
+    "owners": [
+      {
+        "memberId": "sub-bo",
+        "name": "bo-tester",
+        "you": true
+      }
+    ],
+    "milestone": {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "title": "Baseline evals"
+    },
+    "parentId": null,
+    "subtasks": {
+      "done": 0,
+      "total": 0
+    },
+    "mine": true,
+    "updatedAt": "2026-11-07T09:00:00.000Z",
+    "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/2",
+    "projectUrl": "http://localhost/projects/private/marin-neuron-atlas",
+    "body": "",
+    "version": 1,
+    "author": {
+      "memberId": "sub-ada",
+      "name": "ada-tester"
+    },
+    "parent": null,
+    "subtaskRows": [],
+    "proposal": null,
+    "feed": [
+      {
+        "kind": "created",
+        "id": "00000000-0000-4000-8000-000000000020",
+        "at": "2026-11-07T09:00:00.000Z",
+        "by": {
+          "memberId": "sub-ada",
+          "name": "ada-tester"
+        },
+        "text": "ada-tester created it"
+      },
+      {
+        "kind": "opened",
+        "id": "00000000-0000-4000-8000-000000000021",
+        "at": "2026-11-07T09:00:00.000Z",
+        "by": {
+          "memberId": "sub-ada",
+          "name": "ada-tester"
+        },
+        "text": "ada-tester opened it"
+      },
+      {
+        "kind": "milestone_changed",
+        "id": "00000000-0000-4000-8000-000000000022",
+        "at": "2026-11-07T16:00:00.000Z",
+        "by": {
+          "memberId": "sub-ada",
+          "name": "ada-tester"
+        },
+        "text": "ada-tester put it in Baseline evals"
+      },
+      {
+        "kind": "claimed",
+        "id": "00000000-0000-4000-8000-000000000126",
+        "at": "2026-11-07T23:00:00.000Z",
+        "by": {
+          "memberId": "sub-bo",
+          "name": "bo-tester",
+          "you": true
+        },
+        "text": "you claimed it"
+      }
+    ],
+    "following": true,
+    "can": {
+      "claim": false,
+      "release": true,
+      "states": [
+        "doing",
+        "in_review"
+      ],
+      "edit": false,
+      "decide": false,
+      "reopen": false,
+      "propose": false,
+      "addOwners": true,
+      "removeOwners": false,
+      "changeSubtasks": true
+    }
+  }
+}

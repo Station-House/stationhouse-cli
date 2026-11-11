@@ -1,0 +1,4 @@
+{
+  "error": "This project's tasks moved to project management. Update the CLI: uv tool install --force git+https://github.com/Station-House/stationhouse-cli",
+  "code": "cliUpdateRequired"
+}

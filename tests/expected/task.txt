@@ -1,0 +1,22 @@
+Run the direct-ask baseline on 3 models
+#1 · Doing · Baseline evals · marin-neuron-atlas
+Owners: ada-tester, you
+http://localhost/projects/private/marin-neuron-atlas/tasks/1
+
+  Ask each model directly whether a given output was its own, over the
+  shared 200-item set, and record accuracy with 95% intervals.
+  Done when: the three numbers are in the Results tab with the notebook.
+
+Subtasks (1 of 2 done)
+  ✓ #7  Freeze the 200-item set
+    #8  Llama run                Open
+
+Latest
+  Nov 8  you moved it to Doing
+  Nov 8  ada-tester added the subtask "Freeze the 200-item set"
+  Nov 9  ada-tester added the subtask "Llama run"
+  Nov 9  ada-tester completed the subtask "Freeze the 200-item set"
+  Nov 9  ada-tester: Llama's tokenizer trims the trailing space, so I pad
+         the prompts. Mind checking the GPT runs do the same?
+
+You can: move it to claimed, review · release · comment
