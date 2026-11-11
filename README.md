@@ -95,6 +95,36 @@ A command typed exactly runs as that command (`stationhouse who add-question`); 
 a command is a question. A near-miss like `stationhouse claimm x` is an error ("did you mean
 `claim`?"), never a question.
 
+## For a project's leads
+
+A project's leads run its page from here too (members get the server's "Only the project's leads …"
+when they try). Task ids are shown as their first 8 characters, and any unique start of one works.
+A person is their name, the start of it, or their member id. Milestones are numbered as
+`stationhouse milestones` lists them.
+
+```bash
+stationhouse about [--full]              # the About; anyone can read it
+stationhouse about edit [--file F] [--force]  # opens $EDITOR on the latest version; saves a new one
+stationhouse about history               # its versions, newest first
+stationhouse about diff 5 [--to 6]       # what version 5 changed
+stationhouse milestones                  # the rail: # Milestone Due Tasks
+stationhouse milestone add "Ablations" --due 2027-01-10 --before 3
+stationhouse milestone edit 3 --title T --due none --summary S
+stationhouse milestone move 3 --before 2     # or --after
+stationhouse milestone done 1 [--move|--leave] [--yes]  # open tasks move to the next one unless --leave
+stationhouse milestone reopen 1
+stationhouse milestone delete 3 [--yes]      # its tasks go to No milestone
+stationhouse task new "Run the judges" --milestone 1 --offer "Ada Tester"   # an Open task
+stationhouse offers                      # offered to you; and, for a lead, the project's offers
+stationhouse offer 8b11d0f4 "Ada Tester" # hold an Open task for one member for 14 days
+stationhouse offer accept 8b11d0f4       # or: offer decline 8b11d0f4 -m "No time", offer withdraw 8b11d0f4
+stationhouse post hide <post-id> -m "A note to its author"   # post unhide
+stationhouse post lock <post-id> -m "Why"                    # post unlock
+stationhouse comment hide <comment-id>                       # comment unhide
+```
+
+Posts and comments take their full id (from their link on the site).
+
 ## Designing an experiment
 
 Before you run an experiment or analysis, write down how it's set up and check it:

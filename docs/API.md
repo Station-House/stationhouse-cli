@@ -80,6 +80,49 @@ handle is a 409 with a message telling them to verify it on the website. `dashbo
 `removed` / `unchanged` / `failed` for the task's card on the website dashboard. The Join & Follow
 routes answer 403 for a project the member can't see; the CLI then names the nearest one they can.
 
+## Project management (`/board/…`, Leads run projects)
+
+A project's leads run its page (STA-304 to STA-311): its About, milestones, offers and moderation.
+These are the site's own board routes re-exported under `/api/v1/board/`, with the site's contract
+and errors. Writes are leads' (and admins') only: anyone else gets a 403 whose message the CLI shows
+as it is ("Only the project's leads can lock a post's comments."). A stale save is a 409.
+
+| Method + path | Body / query | Response | Command |
+|---|---|---|---|
+| `GET /board/projects/{p}/about` | | `{ about: { page, body, canEdit, summary, saved: { by, at } } }` | `about` |
+| `PUT /board/projects/{p}/about` | `{ body, baseVersion }` | `{ page }`; 409 when `baseVersion` isn't the latest | `about edit` (`--force`: the latest as base) |
+| `GET /board/pages/{page}/versions` | | `{ versions: [{ version, authorId, authorName, createdAt }] }` newest first | `about history` |
+| `GET /board/pages/{page}/diff` | `?from=&to=` | `{ diff: { from, to, lines: [{ type, text }] } }` | `about diff` |
+| `GET /board/projects/{p}/milestones` | | `{ rail: { milestones, currentId, canEdit } }` | `milestones`; every `milestone` command reads it first |
+| `POST /board/projects/{p}/milestones` | `{ title, summary, notes, dueOn }` | `{ rail }` (it goes last) | `milestone add` |
+| `PUT /board/projects/{p}/milestones/order` | `{ order: [milestoneId…] }` | `{ rail }` | `milestone add --before`, `milestone move` |
+| `PATCH /board/milestones/{m}` | `{ title, summary, notes, dueOn, baseVersion }` | `{ rail }` | `milestone edit` (sends the fields it isn't changing as they are) |
+| `PUT /board/milestones/{m}/completed` | `{ completed, openTasks?: "move" \| "leave" }` | `{ rail, completion: { to, movedTaskIds } }` | `milestone done`, `milestone reopen` |
+| `DELETE /board/milestones/{m}` | | `{ rail }` | `milestone delete` |
+| `GET /board/projects/{p}/tasks` | | `{ tasks: { groups: [{ milestone, tasks }], proposals } }` | `milestone done` (its open tasks); short task ids and people's names |
+| `POST /board/projects/{p}/tasks` | `{ title, body, start: "open", offerTo? }` | `{ task }` (the task's view) | `task new` |
+| `GET /board/tasks/{t}` | | `{ task }` with `offer`, `canOffer`, `people` | `offer <task> <person>` (names) |
+| `PUT /board/tasks/{t}/milestone` | `{ milestoneId }` | `{ task }` | `task new --milestone` |
+| `PUT /board/tasks/{t}/offer` | `{ memberId }` | `{ task }` | `offer <task> <person>` |
+| `POST /board/tasks/{t}/offer` | `{ accept, reason? }` | `{ task }` | `offer accept`, `offer decline` |
+| `DELETE /board/tasks/{t}/offer` | | `{ task }` | `offer withdraw` |
+| `GET /board/me/offers` | `?projectId=` | `{ toYou, byLeads }` | `offers`; short task ids |
+| `PUT /board/posts/{post}/hidden` | `{ hidden, note? }` | `{ post }` | `post hide`, `post unhide` |
+| `PUT /board/posts/{post}/locked` | `{ locked, reason? }` | `{ post }` | `post lock`, `post unlock` |
+| `PUT /board/comments/{c}/hidden` | `{ hidden }` | `{ comments }` | `comment hide`, `comment unhide` |
+
+Board ids are UUIDs. The CLI shows a task's first 8 characters and takes any unique start of its id,
+looked up in `me/offers` and the Tasks tab. Posts and comments take their full id: no v1 route lists
+them. A person (`--offer`, `offer <task> <person>`) is a name or the start of one, matched against
+the people those routes name (tasks' owners, offers, proposers, a task's `people`), or a member id;
+`GET /board/projects/{p}/mentions` (the @ picker's people) is read too where the server serves it.
+
+### Admins
+
+| Method + path | Body | Response | Command |
+|---|---|---|---|
+| `POST /api/admin/projects/{p}/overview-migration` (not under `/api/v1`) | `{ apply }` | `{ report: { projectId, applied, plan: { summary, about, milestones, headerLinks } \| null, about, milestones, headerLinks, notified } }`; `about`/`milestones` are `write`, `exists` or `empty` | `admin migrate-overview <p> [--apply]` (STA-312; a dry run without `--apply`) |
+
 ## Who thinks where
 
 - **People asking questions** (`stationhouse`, `stationhouse <question>`, `stationhouse ask`) get the

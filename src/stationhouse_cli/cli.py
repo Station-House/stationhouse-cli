@@ -13,7 +13,7 @@ from datetime import datetime
 from importlib import resources
 from pathlib import Path
 
-from . import __version__, chat, config, design, explore as explore_mod, following, gate, inbox, projects, traces, train, versioncheck, wizard, work
+from . import __version__, chat, config, design, explore as explore_mod, following, gate, inbox, leads, projects, traces, train, versioncheck, wizard, work
 from .auth import (AuthError, DeviceLoginUnavailable, WrongCodeError, current_credentials, device_login,
                    is_platform_page, login, login_with_email_code, normalize_email, request_email_code, sign_out)
 from .client import ApiError, UpgradeRequired, request
@@ -1015,6 +1015,8 @@ def build_parser():
     for name, fn, help in (("approve", cmd_task_approve, "admins only: create the proposed subtask"),
                            ("reject", cmd_task_reject, "admins only: decline a proposed subtask")):
         add(name, fn, help, under=tsub).add_argument("proposal_id", metavar="proposal-id")
+    # Leads run projects (STA-304 to STA-312): about, milestones, task new, offers, post/comment moderation, admin.
+    leads.register(sub, tsub, add, project)
 
     n = sub.add_parser("neuron", help="Marin Neuron Atlas: claim a neuron so nobody else takes it")
     nsub = n.add_subparsers(dest="neuron_cmd", required=True)
@@ -1088,6 +1090,7 @@ def build_parser():
     mv.add_argument("--clear", action="store_true", help="remove the minimum: every version is served")
     mv.add_argument("--force", action="store_true",
                     help="set it even above the newest release on the public mirror, or when that can't be read")
+    leads.register_admin(adsub, add)
     add("skills-install", cmd_skills_install, "install the agent skills (Claude Code)").add_argument("--dir", help="skills directory (default ~/.claude/skills)")
     am = add("agents-md", cmd_agents_md, "write the usage rules into AGENTS.md for other coding agents (Codex, Cursor, ...)")
     am.add_argument("--dir", default=".", help="project directory (default: here)")
@@ -1103,7 +1106,8 @@ def _command_names(parser) -> set[str]:
 # Commands a question can start with ("who is on the scorer?", "claim the scorer task for me"): when
 # what follows doesn't parse as the command, it's a question. Commands with free text or required
 # options (task, explore, assign, ...) always get their own error instead.
-QUESTION_STARTERS = {"who", "context", "claim", "release", "mine", "projects", "project", "unclaimed", "prs", "whoami", "inbox", "todo"}
+QUESTION_STARTERS = {"who", "context", "claim", "release", "mine", "projects", "project", "unclaimed", "prs", "whoami", "inbox", "todo",
+                     "about", "milestones", "offers"}
 
 
 def _parse(parser, argv, questions=True):

@@ -1,14 +1,25 @@
 {
   "version": "0.2.0",
   "commands": {
+    "about": [
+      "diff",
+      "earlier-overview",
+      "edit",
+      "history"
+    ],
     "admin": [
-      "cli-min-version"
+      "cli-min-version",
+      "migrate-overview"
     ],
     "agents-md": [],
     "ask": [],
     "assign": [],
     "chat": [],
     "claim": [],
+    "comment": [
+      "hide",
+      "unhide"
+    ],
     "context": [],
     "design": [
       "answer",
@@ -37,6 +48,15 @@
     "login": [],
     "logout": [],
     "mcp": [],
+    "milestone": [
+      "add",
+      "delete",
+      "done",
+      "edit",
+      "move",
+      "reopen"
+    ],
+    "milestones": [],
     "mine": [],
     "neuron": [
       "claim",
@@ -44,6 +64,14 @@
       "release",
       "renew",
       "who"
+    ],
+    "offer": [],
+    "offers": [],
+    "post": [
+      "hide",
+      "lock",
+      "unhide",
+      "unlock"
     ],
     "project": [],
     "projects": [],
@@ -54,6 +82,7 @@
       "approve",
       "claim",
       "create",
+      "new",
       "proposals",
       "reject",
       "release",
