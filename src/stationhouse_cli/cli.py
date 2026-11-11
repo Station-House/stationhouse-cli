@@ -101,12 +101,29 @@ def cmd_logout(args):
     print("Signed out." if clear_credentials() else "You weren't signed in.")
 
 
-NOT_SIGNED_IN = "Not signed in. Public reads work; sign in to act: stationhouse login"
+NOT_SIGNED_IN = {
+    True: "Not signed in. Public reads work on this server; sign in to act: stationhouse login",
+    False: "Not signed in, and this server doesn't have public reading on: sign in to read or act: stationhouse login",
+    None: "Not signed in. Reads work signed out only where the server has public reading on; sign in to act: stationhouse login",
+}
+
+
+def _public_reading():
+    """Whether this server answers reads signed out (its "signed-out-reading" switch, #457): one
+    visitor read of the project list. True on a 200, False on a 401, None when there's no telling."""
+    try:
+        request("GET", "/api/v1/projects")
+        return True
+    except SignInRequired:
+        return False
+    except ApiError:
+        return None
 
 
 def cmd_whoami(args):
     if not signed_in():
-        _emit(args, {"signedIn": False}, lambda d: print(NOT_SIGNED_IN))
+        public = _public_reading()
+        _emit(args, {"signedIn": False, "publicReads": public}, lambda d: print(NOT_SIGNED_IN[public]))
         return
     creds = current_credentials()
     me = request("GET", "/api/v1/me")
@@ -1161,6 +1178,8 @@ def _interactive(args) -> bool:
 
 
 def cmd_update_post(args):
+    if not signed_in():  # before the editor opens: don't let them write an update they can't post
+        raise SignInRequired("You aren't signed in. Run `stationhouse login`.", 401, {})
     project = _update_project(args)
     if args.status is not None:
         try:
@@ -1642,6 +1661,7 @@ def _parse(parser, argv, questions=True):
 def _sign_in_to(args) -> str:
     """What a signed-out caller was trying to do, for "Sign in to <this>: stationhouse login"."""
     task, neuron = getattr(args, "task_id", "that task"), getattr(args, "neuron_id", "that neuron")
+    update, project = getattr(args, "update_id", "that update"), getattr(args, "project_id", None) or "this project"
     if args.fn is cmd_join_follow:
         page = getattr(args, "page", None)
         return f"{args.cmd} " + (f"page {page}" if page else (getattr(args, "project_id", None) or "this project"))
@@ -1657,6 +1677,10 @@ def _sign_in_to(args) -> str:
         cmd_move: f"move {task}", cmd_comment: f"comment on {task}", cmd_unassign: f"change who's on {task}",
         cmd_propose: "propose a task", cmd_task_new: "write a task", cmd_task_decline: f"decline {task}",
         cmd_task_edit: f"edit {task}", cmd_task_milestone: f"move {task} to a milestone", cmd_task_subtask: "add a subtask",
+        # Updates and Activity (#444): members only, like the site's Activity.
+        cmd_activity: f"see the activity in {project}", cmd_update_latest: f"read the latest update in {project}",
+        cmd_update_show: f"read update {update}", cmd_update_post: f"post an update to {project}",
+        cmd_update_edit: f"edit update {update}", cmd_update_delete: f"delete update {update}",
     }.get(args.fn, "do that")
 
 

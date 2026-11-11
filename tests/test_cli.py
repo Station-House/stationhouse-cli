@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from stationhouse_cli import cli
 from stationhouse_cli.store import load_credentials
 
@@ -24,12 +26,42 @@ def test_reads_work_signed_out_without_a_token(api, capsys):
     assert "authorization" not in {k.lower() for k in api.calls[0]["headers"]}
 
 
-def test_whoami_signed_out_says_public_reads_work(api, capsys):
+def test_whoami_signed_out_says_whether_this_server_reads_signed_out(api, capsys):
+    """Public reading is a switch on the server (#457): whoami asks once, without a token."""
+    api.routes[("GET", "/api/v1/projects")] = (200, {"projects": []})
     code, out, _ = run(capsys, "whoami")
-    assert (code, out) == (0, "Not signed in. Public reads work; sign in to act: stationhouse login\n")
-    assert not api.calls
+    assert (code, out) == (0, "Not signed in. Public reads work on this server; sign in to act: stationhouse login\n")
+    assert [c["path"] for c in api.calls] == ["/api/v1/projects"]
+    assert "authorization" not in {k.lower() for k in api.calls[0]["headers"]}
     _, out, _ = run(capsys, "whoami", "--json")
-    assert json.loads(out) == {"signedIn": False}
+    assert json.loads(out) == {"signedIn": False, "publicReads": True}
+
+    api.routes[("GET", "/api/v1/projects")] = (401, {"error": "Sign in required."})
+    code, out, _ = run(capsys, "whoami")
+    assert (code, out) == (0, "Not signed in, and this server doesn't have public reading on: sign in to read or act: stationhouse login\n")
+    _, out, _ = run(capsys, "whoami", "--json")
+    assert json.loads(out) == {"signedIn": False, "publicReads": False}
+
+    api.routes[("GET", "/api/v1/projects")] = (503, {"error": "Down for a moment."})
+    code, out, _ = run(capsys, "whoami")
+    assert (code, out) == (0, "Not signed in. Reads work signed out only where the server has public reading on; sign in to act: stationhouse login\n")
+
+
+def test_updates_and_activity_signed_out_say_what_to_sign_in_for_without_calling(api, capsys, monkeypatch):
+    """#444's commands are members only, like the site's Activity. `update post` asks before the editor opens."""
+    from stationhouse_cli import updates
+    monkeypatch.setattr(updates, "read_text", lambda *a, **k: pytest.fail("the editor opened signed out"))
+    for argv, doing in [
+        (["activity", "llm-self-attribution"], "see the activity in llm-self-attribution"),
+        (["update", "latest", "llm-self-attribution"], "read the latest update in llm-self-attribution"),
+        (["update", "show", "u-1"], "read update u-1"),
+        (["update", "post", "llm-self-attribution"], "post an update to llm-self-attribution"),
+        (["update", "edit", "u-1", "--status", "at-risk"], "edit update u-1"),
+        (["update", "delete", "u-1", "--yes"], "delete update u-1"),
+    ]:
+        code, _, err = run(capsys, *argv)
+        assert (argv, code, err.splitlines()[0]) == (argv, 1, f"Sign in to {doing}: stationhouse login")
+    assert not api.calls
 
 
 def test_an_action_signed_out_says_what_to_sign_in_for_and_to_run_it_again_without_calling(api, capsys):
