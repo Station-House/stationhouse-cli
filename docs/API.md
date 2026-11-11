@@ -124,8 +124,9 @@ as it is ("Only the project's leads can lock a post's comments."). A stale save 
 
 | Method + path | Body / query | Response | Command |
 |---|---|---|---|
-| `GET /board/projects/{p}/about` | | `{ about: { page, body, canEdit, summary, saved: { by, at } } }` | `about` |
+| `GET /board/projects/{p}/about` | | `{ about: { page, body, canEdit, summary, saved: { by, at }, earlierOverview } }` (`members` or `leads`) | `about`, `about earlier-overview` |
 | `PUT /board/projects/{p}/about` | `{ body, baseVersion }` | `{ page }`; 409 when `baseVersion` isn't the latest | `about edit` (`--force`: the latest as base) |
+| `PUT /board/projects/{p}/about/earlier-overview` | `{ visibleTo }` (`members` or `leads`) | `{ about }`; 400 before the About is written | `about earlier-overview members\|leads` (leads) |
 | `GET /board/pages/{page}/versions` | | `{ versions: [{ version, authorId, authorName, createdAt }] }` newest first | `about history` |
 | `GET /board/pages/{page}/diff` | `?from=&to=` | `{ diff: { from, to, lines: [{ type, text }] } }` | `about diff` |
 | `GET /board/projects/{p}/milestones` | | `{ rail: { milestones, currentId, canEdit } }` | `milestones`; every `milestone` command reads it first |
@@ -156,7 +157,7 @@ the people those routes name (tasks' owners, offers, proposers, a task's `people
 
 | Method + path | Body | Response | Command |
 |---|---|---|---|
-| `POST /api/admin/projects/{p}/overview-migration` (not under `/api/v1`) | `{ apply }` | `{ report: { projectId, applied, plan: { summary, about, milestones, headerLinks } \| null, about, milestones, headerLinks, notified } }`; `about`/`milestones` are `write`, `exists` or `empty` | `admin migrate-overview <p> [--apply]` (STA-312; a dry run without `--apply`) |
+| `POST /api/admin/projects/{p}/overview-migration` (not under `/api/v1`) | `{ apply }` | `{ report: { projectId, applied, plan: { summary, about, milestones, headerLinks } \| null, about, milestones, headerLinks, earlierOverview } }`; `about`, `milestones` and `earlierOverview` are `write`, `exists` or `empty` (`earlierOverview`: `write` hides it from members, `empty` means no About, so members keep it) | `admin migrate-overview <p> [--apply]` (STA-312; a dry run without `--apply`) |
 
 ## Who thinks where
 
