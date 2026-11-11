@@ -237,8 +237,39 @@ uv run python -m stationhouse_cli.commands > commands.json
 ```
 
 A release: bump `__version__` (`src/stationhouse_cli/__init__.py`) and the plugin's version
-(`.claude-plugin/plugin.json`) in a pull request, merge it, then run the platform's `CLI release`
-workflow on main. It tests, tags `cli-v<version>` and pushes `cli/` here, tagged `v<version>`.
+(`.claude-plugin/plugin.json`), and regenerate `commands.json` (it carries the version), in a pull
+request; a feature PR can carry the bump. Merge it, then tag that commit on main (admins only):
+
+```bash
+git fetch origin && git tag cli-vX.Y.Z origin/main && git push origin cli-vX.Y.Z
+```
+
+The tag runs the platform's `CLI release` workflow: it checks the commit is on main and the versions
+match the tag, tests and builds, and pushes `cli/` here, tagged `vX.Y.Z`.
+
+### The minimum version
+
+Every call to the platform says which CLI made it (`X-Stationhouse-CLI-Version`, from 0.2.0 on).
+Admins can set the oldest version the platform still serves, without a deploy:
+
+```bash
+stationhouse admin cli-min-version          # show it
+stationhouse admin cli-min-version 0.2.0    # set it (no newer than the newest release)
+stationhouse admin cli-min-version --clear  # remove it
+```
+
+Setting it checks the newest `vX.Y.Z` tag here first (`git ls-remote`) and refuses a minimum above
+it, or when there's no tag or it can't be read, so nobody is blocked with nothing to update to;
+`--force` sets it anyway. The platform separately refuses one above the version on its main.
+
+Below it, every command stops with `This version (…) is no longer supported. Update: uv tool install
+--force git+https://github.com/Station-House/stationhouse-cli` and exits 1: the platform answers the
+CLI's calls with 426, and before each command (but `design gate`, a hook that fails open) the CLI
+asks `GET /api/cli/version`, at most once an hour, so commands that never call the platform stop too.
+Offline, it carries on, and doesn't ask again for ten minutes. When a newer CLI is out it says so on stderr, at most once a day.
+`STATIONHOUSE_NO_VERSION_CHECK=1` skips that check (the tests set it). CLIs before 0.2.0 send no
+version and aren't blocked. Setting it on production is a production database write: get Raveesh's
+OK each time.
 
 Set `STATIONHOUSE_API_URL` to point at another server (default `https://app.station-house.net`). It must be
 https, except on localhost. A browser-approved sign-in only works with the server that issued it: after

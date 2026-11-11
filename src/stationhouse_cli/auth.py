@@ -157,8 +157,9 @@ def _auth_call(method: str, path: str, body: dict | None = None, bearer: str | N
     """One call to the platform's /api/auth: its status and JSON body ({} when it has none).
     PlatformUnreachable when it doesn't answer."""
     base = secure_platform_url(config.api_url())
+    from . import __version__
     headers = {"Content-Type": "application/json", "Accept": "application/json",
-               "User-Agent": config.user_agent()}
+               "User-Agent": config.user_agent(), config.VERSION_HEADER: __version__}
     if bearer:
         headers["Authorization"] = f"Bearer {bearer}"
     req = urllib.request.Request(base + "/api/auth" + path, method=method, headers=headers,
@@ -177,7 +178,11 @@ def _auth_call(method: str, path: str, body: dict | None = None, bearer: str | N
         out = json.loads(raw or b"{}")
     except ValueError:
         out = {}
-    return status, out if isinstance(out, dict) else {}
+    out = out if isinstance(out, dict) else {}
+    if status == 426:  # below the platform's minimum CLI version: sign-in is blocked too
+        from .client import UpgradeRequired  # client imports this module
+        raise UpgradeRequired(out)
+    return status, out
 
 
 def start_device_login() -> dict:

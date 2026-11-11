@@ -32,6 +32,9 @@ def isolated_config(tmp_path, monkeypatch):
     monkeypatch.delenv("STATIONHOUSE_API_URL", raising=False)
     # Most tests work in one project; the tests of picking a project unset this.
     monkeypatch.setenv("STATIONHOUSE_PROJECT", "conspiracybench")
+    # The once-an-hour version check would add a call to every test's fake server; its own tests
+    # (test_version.py) turn it back on.
+    monkeypatch.setenv("STATIONHOUSE_NO_VERSION_CHECK", "1")
 
 
 @pytest.fixture

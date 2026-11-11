@@ -31,6 +31,20 @@ x-station-house-id-token: <Cognito ID token>          (Cognito only)
 The platform verifies them (`MemberTokens`) and derives the member's Hugging Face handle from their
 verified `HfBinding`. Identity is never read from a body. Admin routes need the `admins` group.
 
+## The CLI's version (0.2.0 on)
+
+Every call, `/api/auth` included, also sends `X-Stationhouse-CLI-Version: <version>`. When the CLI
+is below the minimum admins set, the platform answers any call with 426
+`{ error, minimum, latest, upgrade }`, and the CLI prints `This version (<version>) is no longer
+supported. Update: <upgrade command>` and exits 1.
+
+| Call | Answer |
+|---|---|
+| `GET /api/cli/version` (no sign-in) | `{ minimum: "X.Y.Z" \| null, latest: "X.Y.Z" }`, asked before a command at most once an hour (`~/.config/stationhouse/version-check.json`); offline or any other failure lets the command run, and it isn't asked again for ten minutes |
+| `GET /api/admin/config?key=CLI_MIN_VERSION` | `{ key, value }`, `value` `""` when unset (`admin cli-min-version`) |
+| `PUT /api/admin/config` | `{ key: "CLI_MIN_VERSION", value: "X.Y.Z" }`; 400 for a non-version or one newer than `latest` |
+| `DELETE /api/admin/config?key=CLI_MIN_VERSION` | removes it (`admin cli-min-version --clear`) |
+
 ## Routes (all under `/api/v1`, JSON)
 
 Projects come first and tasks live under their project. A task asked for under the wrong project is a

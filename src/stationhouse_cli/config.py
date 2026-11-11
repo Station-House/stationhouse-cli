@@ -8,6 +8,12 @@ USER_POOL_ID = "us-east-1_IVIvCXApg"
 CLIENT_ID = "79iirq0u3k2uuqhq3s2tph7ru3"
 REGION = "us-east-1"
 DEFAULT_API_URL = "https://app.station-house.net"
+# Every call to the platform says which CLI made it; the platform answers 426 to one below the
+# minimum it supports (src/lib/cli-version.ts). The update command is what that 426 tells members.
+VERSION_HEADER = "X-Stationhouse-CLI-Version"
+# The public mirror members install from; each release is a vX.Y.Z tag there (cli-release.yml).
+MIRROR_URL = "https://github.com/Station-House/stationhouse-cli"
+UPGRADE_COMMAND = f"uv tool install --force git+{MIRROR_URL}"
 
 
 def api_url() -> str:
@@ -26,6 +32,11 @@ def credentials_path() -> Path:
 def settings_path() -> Path:
     """Non-secret preferences (the project you picked with `project use`)."""
     return config_dir() / "settings.json"
+
+
+def version_check_path() -> Path:
+    """The last answer to "is this CLI still supported?" (versioncheck.py), and when it was asked."""
+    return config_dir() / "version-check.json"
 
 
 def project_env() -> str | None:

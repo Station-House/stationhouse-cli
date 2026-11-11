@@ -1,7 +1,8 @@
 """The CLI's commands as its parser has them, for the platform's copy (cli/commands.json).
 
 The platform reads cli/commands.json (src/lib/stationhouse-cli.ts) to know which `stationhouse ...`
-commands exist, so the web assistant never points a member at one the CLI doesn't have.
+commands exist, so the web assistant never points a member at one the CLI doesn't have, and which
+version is the newest (`latest` in GET /api/cli/version, src/lib/cli-version.ts).
 tests/test_commands_json.py fails when the file and the parser disagree; regenerate it with
 
     uv run python -m stationhouse_cli.commands > commands.json
@@ -9,6 +10,7 @@ tests/test_commands_json.py fails when the file and the parser disagree; regener
 import argparse
 import json
 
+from . import __version__
 from .cli import build_parser
 
 
@@ -27,7 +29,7 @@ def command_tree(parser=None) -> dict[str, list[str]]:
 
 
 def render() -> str:
-    return json.dumps({"commands": command_tree()}, indent=2) + "\n"
+    return json.dumps({"version": __version__, "commands": command_tree()}, indent=2) + "\n"
 
 
 if __name__ == "__main__":

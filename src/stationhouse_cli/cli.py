@@ -13,10 +13,10 @@ from datetime import datetime
 from importlib import resources
 from pathlib import Path
 
-from . import __version__, chat, config, design, explore as explore_mod, gate, inbox, projects, traces, train, wizard, work
+from . import __version__, chat, config, design, explore as explore_mod, gate, inbox, projects, traces, train, versioncheck, wizard, work
 from .auth import (AuthError, DeviceLoginUnavailable, WrongCodeError, current_credentials, device_login,
                    is_platform_page, login, login_with_email_code, normalize_email, request_email_code, sign_out)
-from .client import ApiError, request
+from .client import ApiError, UpgradeRequired, request
 from .store import clear_credentials, load_credentials
 
 TASK_ID = r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
@@ -544,6 +544,39 @@ def cmd_assign(args):
     _emit(args, out, lambda d: print(f"Assigned {args.handle.lstrip('@')} to {args.task_id}."))
 
 
+CLI_MIN_VERSION_KEY = "CLI_MIN_VERSION"
+
+
+def cmd_admin_cli_min_version(args):
+    """Admins: the oldest CLI the platform still serves. Every CLI below it gets 426 on each call and
+    is told to update (src/lib/cli-version.ts). Unset, nothing is blocked."""
+    path = "/api/admin/config?key=" + CLI_MIN_VERSION_KEY
+    if args.clear and args.version:
+        raise ApiError("Give a version or --clear, not both.")
+    if args.clear:
+        out = request("DELETE", path)
+    elif args.version:
+        version = args.version.strip()
+        if not versioncheck.parse(version):
+            raise ApiError(f"{args.version!r} isn't a version like 0.2.0.")
+        # The platform refuses one above the version on main; this checks what members can actually
+        # install, since main can be ahead of the last release (a bump merged, not yet tagged).
+        released = versioncheck.mirror_latest()
+        if not args.force:
+            if released is None:
+                raise ApiError(f"Found no release on {config.MIRROR_URL} (no vX.Y.Z tag, or it couldn't be read), so "
+                               f"CLIs below {version} might have nothing to update to. Check it, then add --force.")
+            if versioncheck.below(released, version):
+                raise ApiError(f"The newest release members can install is {released}: a minimum of {version} "
+                               "would block everyone with nothing to update to. Release it first, or add --force.")
+        out = request("PUT", "/api/admin/config", {"key": CLI_MIN_VERSION_KEY, "value": version})
+    else:
+        out = request("GET", path)
+    minimum = (out or {}).get("value") or None
+    _emit(args, {"minimum": minimum}, lambda d: print(
+        f"CLIs below {d['minimum']} are blocked." if d["minimum"] else "No minimum: every CLI version is served."))
+
+
 def cmd_train(args):
     if not sys.stdout.isatty():
         print("The train only runs in a terminal.")
@@ -1020,6 +1053,14 @@ def build_parser():
     w.add_argument("about", nargs="*", help="what you're into, e.g. adversarial prompts")
     w.add_argument("--limit", type=int, default=3, help="how many tasks to suggest (default 3)")
     add("train", cmd_train, "watch the welcome train again")
+    ad = sub.add_parser("admin", help="admins only: platform settings")
+    adsub = ad.add_subparsers(dest="admin_cmd", required=True)
+    mv = add("cli-min-version", cmd_admin_cli_min_version,
+             "the oldest CLI version still served (older ones are blocked); give a version to set it", under=adsub)
+    mv.add_argument("version", nargs="?", help="e.g. 0.2.0")
+    mv.add_argument("--clear", action="store_true", help="remove the minimum: every version is served")
+    mv.add_argument("--force", action="store_true",
+                    help="set it even above the newest release on the public mirror, or when that can't be read")
     add("skills-install", cmd_skills_install, "install the agent skills (Claude Code)").add_argument("--dir", help="skills directory (default ~/.claude/skills)")
     am = add("agents-md", cmd_agents_md, "write the usage rules into AGENTS.md for other coding agents (Codex, Cursor, ...)")
     am.add_argument("--dir", default=".", help="project directory (default: here)")
@@ -1070,8 +1111,18 @@ def _parse(parser, argv, questions=True):
 
 def main(argv=None, questions=True):
     import re
+    argv = sys.argv[1:] if argv is None else list(argv)
+    # Below the platform's minimum, no command runs, even ones that never call it (help, --version).
+    # The design gate is the exception: it runs as a git or agent hook and lets a push through when it
+    # can't decide, and its own calls to the platform get the 426 (versioncheck.py).
+    if [a for a in argv if not a.startswith("-")][:2] != ["design", "gate"]:
+        try:
+            versioncheck.check()
+        except UpgradeRequired as e:
+            print(e, file=sys.stderr)
+            return 1
     parser = build_parser()
-    args = _parse(parser, sys.argv[1:] if argv is None else list(argv), questions)
+    args = _parse(parser, argv, questions)
     for attr in ("task_id", "parent"):
         if hasattr(args, attr) and not re.match(TASK_ID, getattr(args, attr)):
             print(f"error: {getattr(args, attr)!r} isn't a valid task id", file=sys.stderr)
@@ -1081,6 +1132,9 @@ def main(argv=None, questions=True):
         train.welcome(bool(getattr(args, "json", False)))
     try:
         code = args.fn(args)
+    except UpgradeRequired as e:
+        print(e, file=sys.stderr)
+        return 1
     except (AuthError, ApiError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 1

@@ -9,7 +9,7 @@ over its budget or unreachable, questions get the offline `explore` answer inste
 import shlex
 
 from .auth import AuthError
-from .client import ApiError, request
+from .client import ApiError, UpgradeRequired, request
 
 HELP = """Ask anything about the projects and tasks, e.g. "what could I work on?", "what's happening on add-question?".
 Commands start with /:
@@ -79,6 +79,8 @@ class Chat:
         except AuthError:
             self.out("You aren't signed in. Type /login, then ask again.")
             return
+        except UpgradeRequired:
+            raise  # main() says what to install and exits
         except ApiError as e:
             if e.status == 401:
                 self.out("Your session expired. Type /login, then ask again.")
