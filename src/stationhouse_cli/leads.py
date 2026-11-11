@@ -848,13 +848,11 @@ def cmd_admin_migrate_overview(args):
         sections = " · ".join(_headings(about))
         milestones = plan.get("milestones") or []
         done = sum(1 for m in milestones if m.get("completed"))
-        leads_told = len(r.get("notified") or [])
         rows = [
             ("Summary", _clip(plan.get("summary") or "(none)", 45)),
             ("About", _step(r.get("about"), f"version 1, {len(about):,} characters" + (f": {sections}" if sections else ""))),
             ("Milestones", _step(r.get("milestones"), f"{len(milestones)}" + (f" ({done} completed)" if done else ""))),
             ("Header links", f"+{r.get('headerLinks', 0)}"),
-            ("Inbox note", _plural(leads_told, "lead") if leads_told else "nobody"),
             ("Earlier overview", {"write": "hidden from members (leads keep it)", "exists": "already for leads alone",
                                   "empty": "no About, so members keep it"}.get(r.get("earlierOverview"), "unchanged")),
         ]

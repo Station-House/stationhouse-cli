@@ -432,7 +432,6 @@ def report(applied=False, plan=True, about="write"):
                                                {"title": "C", "completed": False}, {"title": "D", "completed": False}],
                                 "headerLinks": [{"label": "Repo", "url": "https://example.org"}] * 3} if plan else None,
                        "about": about, "milestones": "write", "headerLinks": 3 if plan else 0,
-                       "notified": [ADA["memberId"], BEN["memberId"]] if plan else [],
                        "earlierOverview": "write" if plan else "empty"}}
 
 
@@ -444,8 +443,8 @@ def test_admin_migrate_overview_dry_run(signed_in, api, capsys):
     assert lines[0] == "Dry run for consciousness-self-attribution (nothing written; --apply to write it):"
     assert "What makes LLMs self-attribute consciousness…" in lines[1]
     assert f"version 1, {len(ABOUT_PLAN):,} characters: Why this project · How it runs · Plan · Start here · Reading list" in lines[2]
-    assert lines[3].endswith("4 (2 completed)") and lines[4].endswith("+3") and lines[5].endswith("2 leads")
-    assert lines[6].endswith("hidden from members (leads keep it)")
+    assert lines[3].endswith("4 (2 completed)") and lines[4].endswith("+3")
+    assert lines[5].endswith("hidden from members (leads keep it)") and len(lines) == 6
 
 
 def test_admin_migrate_overview_apply(signed_in, api, capsys):
