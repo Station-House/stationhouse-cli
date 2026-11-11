@@ -106,6 +106,14 @@ def test_edit_sends_the_version_it_started_from_and_says_no_email_goes(signed_in
     assert code == 0 and "Nothing changed." in out and api.calls[-1]["method"] == "GET"
 
 
+def test_a_status_change_while_its_emails_go_out_says_to_try_again(signed_in, api, capsys):
+    why = "Its emails are still going out, so its status can't change yet. Try again in a minute."
+    api.routes[("GET", "/api/v1/updates/u-1")] = (200, {"update": UPDATE})
+    api.routes[("PATCH", "/api/v1/updates/u-1")] = (409, {"error": why})
+    code, _, err = run(capsys, "update", "edit", "u-1", "--status", "at-risk")
+    assert code == 1 and why in err
+
+
 def test_delete_needs_yes_without_a_terminal(signed_in, api, capsys, monkeypatch):
     api.routes[("DELETE", "/api/v1/updates/u-1")] = (200, {"ok": True})
     monkeypatch.setattr(sys, "stdin", io.StringIO(""))
