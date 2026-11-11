@@ -14,7 +14,7 @@ from datetime import datetime
 from importlib import resources
 from pathlib import Path
 
-from . import __version__, chat, config, design, explore as explore_mod, following, gate, inbox, leads, pm, projects, traces, train, versioncheck, wizard, work
+from . import __version__, chat, config, design, explore as explore_mod, following, gate, inbox, leads, pm, projects, traces, train, updates, versioncheck, wizard, work
 from .auth import (AuthError, DeviceLoginUnavailable, WrongCodeError, current_credentials, device_login,
                    is_platform_page, login, login_with_email_code, normalize_email, request_email_code, sign_out)
 from .client import ApiError, UpgradeRequired, request
@@ -1129,6 +1129,113 @@ def cmd_design_attach_trace(args):
     return 0
 
 
+# --- project updates (STA-287) -------------------------------------------------------------------
+
+def _update_project(args) -> str:
+    return projects.resolve(getattr(args, "project_id", None) or getattr(args, "project", None))
+
+
+def _interactive(args) -> bool:
+    return getattr(args, "file", None) != "-" and sys.stdin.isatty() and not getattr(args, "json", False)
+
+
+def cmd_update_post(args):
+    project = _update_project(args)
+    if args.status is not None:
+        try:
+            status = updates.status_arg(args.status)
+        except ValueError as e:
+            raise ApiError(str(e)) from None
+    else:
+        status = ...
+    if args.file is None:
+        print("Write the update in your editor (Markdown)…", end="", flush=True)
+    text, from_editor = updates.read_text(args.file)
+    if from_editor:
+        print(f" saved, {len(text.strip())} characters.")
+    if not text.strip():
+        raise ApiError("The update is empty, so nothing was posted. Its first line is its title.")
+    if status is ... and _interactive(args):
+        start = updates.listing(project).get("nextStatus")
+        word = input(f"Status (none, on-track, at-risk, off-track) [{updates.status_word(start)}]: ").strip()
+        try:
+            status = updates.status_arg(word) if word else start
+        except ValueError as e:
+            raise ApiError(str(e)) from None
+    update = updates.post(project, text, status)
+
+    def human(u):
+        if _interactive(args):
+            updates.render_preview(u)
+        print("Published.")
+        if updates.page_url(u):
+            print(updates.page_url(u))
+    _emit(args, {"update": update}, lambda d: human(d["update"]))
+
+
+def cmd_update_edit(args):
+    current = updates.show(args.update_id)
+    body = {"baseVersion": current["version"]}
+    if args.status is not None:
+        try:
+            status = updates.status_arg(args.status)
+        except ValueError as e:
+            raise ApiError(str(e)) from None
+        if status != current.get("status"):
+            body["status"] = status
+    # The text: from --file, else your editor, unless only --status was given.
+    if args.file is not None or args.status is None:
+        if args.file is None:
+            print("Opens the update in your editor…", end="", flush=True)
+        text, from_editor = updates.read_text(args.file, current.get("text", ""))
+        if from_editor:
+            print(" saved.")
+        if not text.strip():
+            raise ApiError(f"The update would be empty, so nothing was saved. To remove it: stationhouse update delete {args.update_id}")
+        if text.rstrip() != current.get("text", ""):
+            body["text"] = text
+    if set(body) == {"baseVersion"}:
+        _emit(args, {"update": current}, lambda _d: print("Nothing changed."))
+        return 0
+    update = updates.edit(args.update_id, body)
+    _emit(args, {"update": update}, lambda _d: print("Saved. The email already sent isn't changed."))
+
+
+def cmd_update_delete(args):
+    if not args.yes:
+        if not sys.stdin.isatty():
+            raise ApiError("Deleting an update can't be undone: add --yes to delete it without asking.")
+        current = updates.show(args.update_id)
+        if input(f"Delete \"{current.get('title', '')}\"? It leaves the Overview and Activity. [y/N] ").strip().lower() not in ("y", "yes"):
+            print("Kept it.")
+            return 0
+    updates.delete(args.update_id)
+    _emit(args, {"ok": True, "id": args.update_id}, lambda _d: print("Deleted. Emails not sent yet won't go."))
+
+
+def cmd_update_show(args):
+    _emit(args, {"update": updates.show(args.update_id)}, lambda d: updates.render_update(d["update"]))
+
+
+def cmd_update_latest(args):
+    project = _update_project(args)
+    latest = (updates.listing(project).get("updates") or [None])[0]
+
+    def human(d):
+        if d["update"] is None:
+            print("No updates yet.")
+        else:
+            updates.render_update(d["update"])
+    _emit(args, {"update": latest}, human)
+
+
+def cmd_activity(args):
+    project = _update_project(args)
+    only = next((f for f in updates.FILTERS if getattr(args, f, False)), None)
+    data = updates.activity(project, only, args.all)
+    _emit(args, data, lambda d: updates.render_activity(d, only))
+
+
 def cmd_hooks_install(args):
     import os
     import stat
@@ -1399,6 +1506,32 @@ def build_parser():
     g.add_argument("--body-file", help="the PR description, if the design is in its ## Design section")
     g.add_argument("--hook", action="store_true", help="run as a Claude Code PreToolUse hook (tool call on stdin)")
     g.add_argument("--pre-push", nargs="?", const="", default=None, metavar="REMOTE_URL", help="run as a git pre-push hook")
+
+    act = project(add("activity", cmd_activity, "a project's updates and what happened: tasks completed, posts, milestones"))
+    act.add_argument("project_id", nargs="?", metavar="project", help="the project (default: the one you work in)")
+    only = act.add_mutually_exclusive_group()
+    for f in updates.FILTERS:
+        only.add_argument(f"--{f}", action="store_true", help=f"only {f}")
+    act.add_argument("--all", action="store_true", help="everything, not just the latest 30")
+
+    up = sub.add_parser("update", help="project updates: leads post them; followers get them by email and in their Inbox")
+    usub = up.add_subparsers(dest="update_cmd", required=True)
+    statuses = ", ".join(updates.STATUSES)
+    upp = project(add("post", cmd_update_post, "leads only: post an update (its first line is its title); opens $EDITOR without --file",
+                      under=usub))
+    upp.add_argument("project_id", nargs="?", metavar="project", help="the project (default: the one you work in)")
+    upp.add_argument("--status", help=f"one of {statuses} (default: the last one used; on-track for the first)")
+    upp.add_argument("--file", help="read the Markdown from this file, or - for stdin")
+    upe = add("edit", cmd_update_edit, "leads only: edit an update; nobody is emailed again", under=usub)
+    upe.add_argument("update_id", metavar="update-id")
+    upe.add_argument("--status", help=f"one of {statuses}")
+    upe.add_argument("--file", help="the new Markdown from this file, or - for stdin (default: your editor)")
+    upd = add("delete", cmd_update_delete, "leads only: delete an update", under=usub)
+    upd.add_argument("update_id", metavar="update-id")
+    upd.add_argument("--yes", action="store_true", help="don't ask first")
+    add("show", cmd_update_show, "one update in full", under=usub).add_argument("update_id", metavar="update-id")
+    upl = project(add("latest", cmd_update_latest, "a project's latest update", under=usub))
+    upl.add_argument("project_id", nargs="?", metavar="project", help="the project (default: the one you work in)")
 
     hk = sub.add_parser("hooks", help="git hooks for Station House project repos")
     hsub = hk.add_subparsers(dest="hooks_cmd", required=True)

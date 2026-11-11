@@ -7,6 +7,7 @@
       "edit",
       "history"
     ],
+    "activity": [],
     "admin": [
       "cli-min-version",
       "migrate-overview"
@@ -102,6 +103,13 @@
     "unclaim": [],
     "unclaimed": [],
     "unfollow": [],
+    "update": [
+      "delete",
+      "edit",
+      "latest",
+      "post",
+      "show"
+    ],
     "who": [],
     "whoami": [],
     "work": []

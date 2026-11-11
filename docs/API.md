@@ -69,6 +69,12 @@ Projects come first and tasks live under their project. A task asked for under t
 | `POST /projects/{p}/tasks/{t}/assign` | `{ hfUsername }` (admin only) | `{ ok: true }` |
 | `POST /projects/{p}/tasks/{t}/subtasks` | `{ title, summary }` | `{ proposalId, created, status }` (`task create`) |
 | `GET /proposals`, `POST /proposals/approve`, `POST /proposals/reject` | (admin only) | the subtask-proposal queue |
+| `GET /projects/{p}/updates` | | `{ updates, canPost, nextStatus }` (`update latest`, and the status prompt of `update post`) |
+| `POST /projects/{p}/updates` | `{ text, status? }` (leads only; 3 a day per project, else 429) | `{ update }` (`update post`) |
+| `GET /updates/{id}` | | `{ update }` (`update show`, and `update edit` first) |
+| `PATCH /updates/{id}` | `{ text?, status?, baseVersion? }` (leads only) | `{ update }` (`update edit`) |
+| `DELETE /updates/{id}` | (leads only) | `{ ok: true }` (`update delete`) |
+| `GET /projects/{p}/activity` | `?only=&limit=` | `{ items, counts, hasMore, ... }` (`activity`) |
 | `PUT`/`DELETE /projects/{p}/membership` | (no body) | `{ projectId, title, member, lead, following, reason, changed }` (`join`, `leave`; a lead's leave is a 409) |
 | `GET`/`PUT`/`DELETE /projects/{p}/following` | (no body) | the same (`follow`, `unfollow`; GET reads it, without `changed`) |
 | `GET`/`PUT`/`DELETE /pages/{id}/following` | (no body) | `{ following, reason, unfollowed, projectFollowing, others }` (`follow --page`, `unfollow --page`) |
