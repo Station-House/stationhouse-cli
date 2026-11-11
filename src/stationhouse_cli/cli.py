@@ -381,16 +381,48 @@ def cmd_mine(args):
 
 
 def cmd_inbox(args):
-    # Everything waiting on you unless a project is named or picked: a reply doesn't care which project you're in.
-    project = projects.chosen(args.project)
-    if args.action == "done":
-        if not args.target:
-            raise ApiError("Which one? stationhouse inbox done <#number>  (see `stationhouse inbox`)")
-        item = inbox.done(project, args.target)
-        _emit(args, {"done": item["id"]}, lambda d: print(
-            f"Marked #{item['num']} done. It comes back if someone comments again."))
+    """The One Inbox (STA-318): every project you follow and Hugging Face and GitHub replies to you,
+    unless --project or --kind narrows it. open/read/done/unread mark items read or unread everywhere."""
+    action, target = args.action, args.target
+    if action in ("read", "done"):
+        if args.all:
+            change = inbox.mark_read("all")
+        else:
+            if not target:
+                raise ApiError(f"Which one? stationhouse inbox {action} <number>, or {action} --all  (see `stationhouse inbox`)")
+            change = inbox.mark_read([inbox.pick(inbox.fetch(args.project, args.kind), target)["id"]])
+        _emit(args, change, lambda d: print(inbox.marked(d.get("changed", 0))))
         return
-    _emit(args, inbox.fetch(project), inbox.render)
+    if action == "unread":
+        if not (args.last or target):
+            raise ApiError("Which one? stationhouse inbox unread --last undoes the last Mark read, or unread <number>.")
+        change = inbox.mark_unread("last" if args.last else [inbox.pick(inbox.fetch(args.project, args.kind), target)["id"]])
+        _emit(args, change, lambda d: print(inbox.marked(d.get("changed", 0), unread=True)))
+        return
+    if action == "open":
+        if not target:
+            raise ApiError("Which one? stationhouse inbox open <number>  (see `stationhouse inbox`)")
+        item = inbox.pick(inbox.fetch(args.project, args.kind), target)
+        url = inbox.url_of(item)
+        opened = False
+        if sys.stdout.isatty():
+            with contextlib.suppress(webbrowser.Error):
+                opened = webbrowser.open(url)
+        change = inbox.mark_read([item["id"]]) if item.get("unread") else {"changed": 0}
+        read = " Marked read." if change.get("changed") else ""
+        _emit(args, {"url": url, "opened": opened, **change}, lambda d: print(
+            f"Opened {inbox.shown_url(url)} in your browser.{read}" if opened else f"Open it here: {url}{read}"))
+        return
+    data = inbox.fetch(args.project, args.kind)
+    if args.json:
+        _emit(args, data, None)
+        return
+    title = None
+    if args.project:
+        with contextlib.suppress(ApiError):
+            title = (request("GET", projects.project_path(args.project)) or {}).get("project", {}).get("title")
+        title = title or args.project
+    inbox.render(data, everything=args.all, project_title=title, kind=args.kind)
 
 
 def cmd_join_follow(args):
@@ -896,14 +928,14 @@ def cmd_chat(args):
 
 
 def _inbox_line(project):
-    """The chat greeting's nudge when something is waiting on you; nothing if not, or if it can't tell."""
+    """The chat greeting's nudge when the Inbox has unread items; nothing if not, or if it can't tell."""
     try:
-        n = len(inbox.fetch(project).get("followUps") or [])
+        n = inbox.fetch().get("unread") or 0
     except (AuthError, ApiError):
         return ""
     if not n:
         return ""
-    return f"\n{n} follow-up{'s are' if n != 1 else ' is'} waiting on you: /inbox to see {'them' if n != 1 else 'it'}."
+    return f"\nYour Inbox has {n} unread: /inbox to see {'them' if n != 1 else 'it'}."
 
 
 def cmd_assign(args):
@@ -1491,10 +1523,14 @@ def build_parser():
     add("context", cmd_context, "a task's neighbourhood: people, PRs and their latest comments", task=True)
     add("mine", cmd_mine, "every task you're on, in every project").add_argument(
         "--all", action="store_true", help="Completed ones too")
-    ib = project(add("inbox", cmd_inbox, "PRs and discussions waiting on you: feedback, replies, mentions",
+    ib = project(add("inbox", cmd_inbox, "your Inbox: the projects you follow, and Hugging Face and GitHub replies to you",
                      aliases=["follow-ups", "todo"]))
-    ib.add_argument("action", nargs="?", choices=["list", "done"], default="list")
-    ib.add_argument("target", nargs="?", metavar="number", help="with `done`: the PR/discussion number (or its full id)")
+    ib.add_argument("action", nargs="?", choices=["list", "open", "read", "unread", "done"], default="list",
+                    help="open <n> opens one and marks it read; read <n> (or done <n>) marks it read; unread --last undoes the last")
+    ib.add_argument("target", nargs="?", metavar="number", help="the item's number in the list (or its id)")
+    ib.add_argument("--all", action="store_true", help="Earlier (read) items too; with `read`, marks every unread one read")
+    ib.add_argument("--kind", help="only this kind: " + ", ".join(inbox.KINDS))
+    ib.add_argument("--last", action="store_true", help="with `unread`: undo the last Mark read")
     ds = project(add("discussions", cmd_discussions, "the community's (or a project's) discussions: list, show, new, reply, follow"))
     ds.add_argument("action", nargs="?", metavar="scope|action",
                     help="`community` or a project id to list; or show <id>, new <scope>, reply <id>, follow|unfollow <scope>")

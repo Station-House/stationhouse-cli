@@ -1,84 +1,181 @@
-"""The contributor's inbox: PRs and discussions where someone is waiting on them (GET
-/api/v1/me/follow-ups). Feedback on their own open PRs first, then @mentions, then replies. Items clear
-themselves on the platform when the thread is merged or closed, or once they answer (a comment, or a
-commit to their own PR); `inbox done` hides one until someone comments again.
+"""The One Inbox (GET /api/v1/me/inbox, STA-318): the same Inbox as the bell and the Inbox page. Every
+project the member follows, plus Hugging Face and GitHub replies to them, with the same kinds and words
+as the page's filters. Unread first, then Earlier (with --all), each numbered so `inbox open <n>` and
+`inbox read <n>` can name it. Opening or reading one marks it read everywhere: the bell, the page,
+Today and here. `inbox unread --last` undoes the last Mark read.
 """
 from datetime import datetime, timezone
 
+from . import config
 from .client import ApiError, request
 
-TODO = {
-    "pr-feedback": "Feedback on your PR",
-    "mention": "Mentioned you",
-    "reply": "Replied to you",
-}
+KINDS = ("mentions", "replies", "tasks", "posts", "hf", "github")
+
+UNDO = "stationhouse inbox unread --last"
 
 
-def fetch(project: str | None) -> dict:
-    """{verified, followUps: [...]} for one project, or all of them when project is None."""
+def unknown_kind(kind: str) -> str:
+    """Worded as the platform words it, so the page and the CLI say the same."""
+    return f'No kind "{kind}". Kinds: {", ".join(KINDS)}'
+
+
+def fetch(project: str | None = None, kind: str | None = None) -> dict:
+    """{items, unread, counts, sources}: the Inbox under these filters, newest first, each item numbered `n`."""
+    if kind is not None and kind not in KINDS:
+        raise ApiError(unknown_kind(kind), 400)
+    query = {k: v for k, v in (("project", project), ("kind", kind)) if v}
     try:
-        return request("GET", "/api/v1/me/follow-ups", query={"project": project} if project else None) or {}
+        data = request("GET", "/api/v1/me/inbox", query=query or None) or {}
     except ApiError as e:
         if e.status == 404 and not e.body.get("error"):
-            raise ApiError("This Station House server doesn't have the inbox yet.", 404) from None
+            raise ApiError("This Station House server doesn't have the Inbox yet.", 404) from None
         raise
+    return numbered(data)
 
 
-def waiting(iso: str, now: datetime | None = None) -> str:
+def numbered(data: dict) -> dict:
+    """Unread first, then Earlier, each newest first, numbered from 1 in that order: the numbers the
+    list shows with or without --all."""
+    items = data.get("items") or []
+    ordered = [i for i in items if i.get("unread")] + [i for i in items if not i.get("unread")]
+    return {**data, "items": [{"n": n, **item} for n, item in enumerate(ordered, 1)]}
+
+
+def age(iso: str, now: datetime | None = None) -> str:
+    """12m, 3h, 2d, then the date: the page's words."""
     now = now or datetime.now(timezone.utc)
     try:
-        hours = int((now - datetime.fromisoformat(iso.replace("Z", "+00:00"))).total_seconds() // 3600)
+        then = datetime.fromisoformat(iso.replace("Z", "+00:00"))
     except ValueError:
-        return "a while"
-    if hours < 1:
-        return "under an hour"
-    if hours < 48:
-        return f"{hours} hour{'s' if hours != 1 else ''}"
-    return f"{hours // 24} days"
+        return ""
+    minutes = int((now - then).total_seconds() // 60)
+    if minutes < 1:
+        return "just now"
+    if minutes < 60:
+        return f"{minutes}m"
+    if minutes < 60 * 24:
+        return f"{minutes // 60}h"
+    if minutes < 60 * 24 * 7:
+        return f"{minutes // (60 * 24)}d"
+    return f"{then.strftime('%b')} {then.day}"
 
 
-def render(data: dict, out=print) -> None:
-    if not data.get("verified", True):
-        out("Verify your Hugging Face account on your Station House profile, then the inbox can find "
-            "the PRs and discussions waiting on you.")
-        return
-    items = data.get("followUps") or []
+def short_label(item: dict) -> str:
+    """The kind as a terminal column fits it: "Reply · HF", "PR · GitHub", "Comments (3)"."""
+    if item.get("bundled"):
+        return f"Comments ({item['bundled']})"
+    return (item.get("label") or "").replace("Hugging Face", "HF").replace("PR feedback", "PR").replace("Added to a task", "Added to task")
+
+
+def short_project(project: str | None) -> str:
+    """A project's id as a column fits it: its first word ("marin" for marin-neuron-atlas)."""
+    return (project or "").split("-")[0]
+
+
+def clip(text: str, width: int = 64) -> str:
+    text = " ".join((text or "").split())
+    return text if len(text) <= width else text[: width - 1].rstrip() + "…"
+
+
+def _rows(items: list[dict], out, columns: list[dict] | None = None) -> None:
+    """Numbered rows, their columns as wide as `columns` (every row shown, so Unread and Earlier line up) need."""
+    columns = columns or items
+    label_w = max(len(short_label(i)) for i in columns)
+    project_w = max(len(short_project(i.get("project"))) for i in columns)
+    age_w = max(len(age(i["at"])) for i in columns)
+    n_w = len(str(max(i["n"] for i in columns)))
+    for item in items:
+        out(f"  {str(item['n']).rjust(n_w)}  {short_label(item).ljust(label_w)}  {short_project(item.get('project')).ljust(project_w)}  "
+            f"{age(item['at']).ljust(age_w)}  {clip(item['title'])}")
+
+
+def failed(data: dict) -> bool:
+    sources = data.get("sources") or {}
+    return sources.get("hf") == "failed" or sources.get("github") == "failed"
+
+
+def render(data: dict, out=print, everything: bool = False, project_title: str | None = None, kind: str | None = None) -> None:
+    items = data.get("items") or []
+    unread = [i for i in items if i.get("unread")]
+    earlier = [i for i in items if not i.get("unread")]
+    filtered = bool(project_title or kind)
+    head = ["Inbox", *([project_title] if project_title else []), *([kind] if kind else []), f"{data.get('unread', len(unread))} unread"]
+    if failed(data):
+        head.append("Hugging Face and GitHub didn't load, so they're missing.")
+    elif not filtered and items:
+        head.append(f"{len(items)} in all")
+
     if not items:
-        out("Nothing is waiting on you.")
+        out(" · ".join(head) if filtered or failed(data) else
+            "Your Inbox is empty. Join or follow a project and what happens there shows up here. Link Hugging Face "
+            "or GitHub on your Profile and replies to you show up too.")
+        if failed(data):
+            out("  Try again in a minute: stationhouse inbox")
         return
-    out(f"{len(items)} follow-up{'s' if len(items) != 1 else ''} waiting on you, most urgent first:")
-    for f in items:
-        where = f"  ({f['projectId']})" if f.get("projectId") else ""
-        task = f"  [{f['taskId']}]" if f.get("taskId") else ""
-        out(f"\n#{f['num']}  {f['title']}{task}{where}")
-        who = ", ".join(f.get("from", [])[:3]) + (f" +{len(f['from']) - 3}" if len(f.get("from", [])) > 3 else "")
-        out(f"    {TODO.get(f.get('kind'), 'Waiting on you')}: {who}, {f['count']} comment{'s' if f['count'] != 1 else ''}, "
-            f"waiting {waiting(f['waitingSince'])}")
-        latest = " ".join((f.get("latest") or {}).get("text", "").split())
-        if latest:
-            out(f"    {f['latest']['author']}: {latest[:120]}{'…' if len(latest) > 120 else ''}")
-        if f.get("url"):
-            out(f"    {f['url']}")
-    out("\nAnswer on the PR or discussion and it clears itself. Already handled? stationhouse inbox done <#number>")
+    if not unread and not everything:
+        out(" · ".join(head) if failed(data) else "Nothing unread. Earlier: stationhouse inbox --all")
+        if failed(data):
+            out("  Try again in a minute: stationhouse inbox")
+        return
+
+    out(" · ".join(head))
+    shown = items if everything else unread
+    if filtered and not everything:
+        _rows(shown, out)
+    else:
+        for title, group in (("Unread", unread), ("Earlier", earlier if everything else [])):
+            if group:
+                out(f"\n{title}")
+                _rows(group, out, shown)
+    if failed(data):
+        out("\n  Try again in a minute: stationhouse inbox")
+    elif not filtered:
+        n = shown[min(1, len(shown) - 1)]["n"]
+        out(f"\n  Open one:     stationhouse inbox open {n}")
+        out(f"  Mark read:    stationhouse inbox read {n}      (or: read --all)")
+        if not everything and earlier:
+            out("  Earlier too:  stationhouse inbox --all")
 
 
-def find(items: list[dict], target: str) -> dict:
-    """The item `target` names: its full id ("owner/repo#12") or just its number ("12", "#12")."""
-    exact = [f for f in items if f["id"] == target]
+def pick(data: dict, target: str) -> dict:
+    """The item `target` names: its number in the list ("2", "#2") or its id."""
+    items = data.get("items") or []
+    exact = [i for i in items if i["id"] == target]
     if exact:
         return exact[0]
-    num = target.lstrip("#")
-    matches = [f for f in items if num.isdigit() and f["num"] == int(num)]
-    if len(matches) == 1:
-        return matches[0]
-    if matches:
-        ids = ", ".join(f["id"] for f in matches)
-        raise ApiError(f"#{num} is in more than one repo ({ids}). Say which: stationhouse inbox done <id>")
-    raise ApiError(f"Nothing in your inbox is {target}. See `stationhouse inbox`.")
+    n = target.lstrip("#")
+    found = [i for i in items if n.isdigit() and i["n"] == int(n)]
+    if found:
+        return found[0]
+    raise ApiError(f"Nothing in your Inbox is {target}. See `stationhouse inbox`.")
 
 
-def done(project: str | None, target: str) -> dict:
-    """Marks the item done up to its latest comment, so a newer comment brings it back."""
-    item = find(fetch(project).get("followUps") or [], target)
-    request("POST", "/api/v1/me/follow-ups/done", {"id": item["id"], "upTo": item["latest"]["at"]})
-    return item
+def url_of(item: dict) -> str:
+    """The item's link, the platform's own made whole."""
+    url = item.get("url") or ""
+    return url if "://" in url else f"{config.api_url()}{url}"
+
+
+def shown_url(url: str) -> str:
+    """huggingface.co/…/discussions/41: where it goes, short enough to read."""
+    bare = url.split("://", 1)[-1]
+    parts = bare.split("/")
+    return bare if len(bare) <= 48 or len(parts) <= 3 else f"{parts[0]}/…/{'/'.join(parts[-2:])}"
+
+
+def mark_read(target: list[str] | str) -> dict:
+    """{changed, inbox}: marks these ids (or "all") read."""
+    body = {"all": True} if target == "all" else {"ids": target}
+    return request("POST", "/api/v1/me/inbox/read", body) or {}
+
+
+def mark_unread(target: list[str] | str) -> dict:
+    """{changed, inbox}: marks these ids unread, or ("last") undoes the last Mark read."""
+    body = {"last": True} if target == "last" else {"ids": target}
+    return request("POST", "/api/v1/me/inbox/unread", body) or {}
+
+
+def marked(changed: int, unread: bool = False) -> str:
+    if unread:
+        return f"Marked {changed} as unread." if changed else "Nothing to put back."
+    return f"Marked {changed} as read. Undo: {UNDO}" if changed else "Already read."

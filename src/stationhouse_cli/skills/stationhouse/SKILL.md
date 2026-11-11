@@ -27,8 +27,9 @@ Add `--json` for output you can parse.
 ```
 stationhouse projects                       the projects they can see (and which one they picked)
 stationhouse project [use <id> | clear]     show / pick / forget the project they work in
-stationhouse inbox                          PRs and discussions waiting on the contributor: feedback, replies, mentions
-stationhouse inbox done <#number>           mark one handled (it comes back if someone comments again)
+stationhouse inbox [--all] [--kind K]       their Inbox: the projects they follow, Hugging Face and GitHub replies to them
+stationhouse inbox open|read <n>            open one in the browser and mark it read / just mark it read (`done <n>` too)
+stationhouse inbox read --all               mark every unread one read; `inbox unread --last` undoes it
 stationhouse join|leave [project]           join a project (which follows it too) / leave it (still following; a lead can't)
 stationhouse follow|unfollow [project]      hear about a project or stop; a member who unfollows stays one
 stationhouse follow|unfollow <task>         follow or unfollow a project-management task: 12 or <project>#12
@@ -112,12 +113,12 @@ you less than the JSON does.
 ## Follow-ups come first
 
 When the contributor asks what to do (or what's next, or what needs them), run `stationhouse inbox
---json` before anything else. Each item is a PR or discussion where someone is waiting on them:
-`kind` is `pr-feedback` (feedback on their own open PR), `mention` or `reply`; `from`, `count`,
-`latest` and `url` say who, how much and where. If there are any, lead with "do these follow-ups
-first", most urgent first, with the link and what to do (answer the review, push a fix, reply).
-Only then pick new work. Items clear themselves when the PR is merged or closed or once the
-contributor answers on it; run `inbox done <#number>` only when they say it's handled some other way.
+--json` before anything else. Each item has a number `n`, a `filter` (mentions, replies, tasks,
+posts, hf, github), `unread`, `addressed` (it's to them: a mention, a reply, a task given to them,
+feedback on their PR), a `title`, `context` and `url`. If any unread one is addressed to them, lead
+with those, newest first, with the link and what to do (answer the review, push a fix, reply). Only
+then pick new work. Run `inbox read <n>` only when they say it's handled; opening one with
+`inbox open <n>` marks it read too.
 
 ## Picking work
 

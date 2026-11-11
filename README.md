@@ -41,8 +41,11 @@ stationhouse who <task-id>    # who is on a task, active or stale
 stationhouse context <task-id>  # the task's neighbourhood: people, its PRs/discussions and their latest comments
 stationhouse claim <task-id>  # put yourself on it
 stationhouse release <task-id>
-stationhouse inbox            # PRs and discussions waiting on you: feedback, replies, mentions
-stationhouse inbox done 348   # mark one handled (it comes back if someone comments again)
+stationhouse inbox            # your Inbox: unread from the projects you follow, Hugging Face and GitHub replies to you
+stationhouse inbox --all --kind mentions --project marin-neuron-atlas   # Earlier too; kinds: mentions, replies, tasks, posts, hf, github
+stationhouse inbox open 2     # open one in your browser and mark it read
+stationhouse inbox read 2     # mark one read (`read --all` for all; `done 2` works too)
+stationhouse inbox unread --last  # undo the last Mark read
 stationhouse join <id>        # join a project: you work on it, and you follow it too
 stationhouse unfollow <id>    # stop hearing about it; you stay a member (mentions and your tasks still reach you)
 stationhouse follow <id>      # hear about a project without joining; `leave <id>` keeps the follow
