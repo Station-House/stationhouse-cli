@@ -4,6 +4,7 @@ as the page's filters. Unread first, then Earlier (with --all), each numbered so
 `inbox read <n>` can name it. Opening or reading one marks it read everywhere: the bell, the page,
 Today and here. `inbox unread --last` undoes the last Mark read.
 """
+import re
 from datetime import datetime, timezone
 
 from . import config
@@ -89,9 +90,19 @@ def _rows(items: list[dict], out, columns: list[dict] | None = None) -> None:
             f"{age(item['at']).ljust(age_w)}  {clip(item['title'])}")
 
 
-def failed(data: dict) -> bool:
+def missing(data: dict) -> str | None:
+    """What didn't load, as the header says it: "Hugging Face and GitHub", "closed polls", or all three."""
     sources = data.get("sources") or {}
-    return sources.get("hf") == "failed" or sources.get("github") == "failed"
+    threads = sources.get("hf") == "failed" or sources.get("github") == "failed"
+    polls = sources.get("polls") == "failed"
+    if not threads and not polls:
+        return None
+    what = "Hugging Face, GitHub and closed polls" if threads and polls else "Hugging Face and GitHub" if threads else "Closed polls"
+    return f"{what} didn't load, so they're missing."
+
+
+def failed(data: dict) -> bool:
+    return missing(data) is not None
 
 
 def render(data: dict, out=print, everything: bool = False, project_title: str | None = None, kind: str | None = None) -> None:
@@ -101,7 +112,7 @@ def render(data: dict, out=print, everything: bool = False, project_title: str |
     filtered = bool(project_title or kind)
     head = ["Inbox", *([project_title] if project_title else []), *([kind] if kind else []), f"{data.get('unread', len(unread))} unread"]
     if failed(data):
-        head.append("Hugging Face and GitHub didn't load, so they're missing.")
+        head.append(missing(data))
     elif not filtered and items:
         head.append(f"{len(items)} in all")
 
@@ -137,8 +148,18 @@ def render(data: dict, out=print, everything: bool = False, project_title: str |
             out("  Earlier too:  stationhouse inbox --all")
 
 
+THREAD_NUMBER = re.compile(r"/(?:pull|issues|discussions)/(\d+)(?:[/?#]|$)")
+
+
+def thread_number(item: dict) -> int | None:
+    """A Hugging Face or GitHub item's PR, issue or discussion number (212 for …/pull/212)."""
+    found = THREAD_NUMBER.search(item.get("url") or "") if item.get("external") else None
+    return int(found.group(1)) if found else None
+
+
 def pick(data: dict, target: str) -> dict:
-    """The item `target` names: its number in the list ("2", "#2") or its id."""
+    """The item `target` names: its number in the list ("2", "#2"), its id, or, when it's no list
+    number, the PR or discussion number of the one thread that has it ("212" for PR #212)."""
     items = data.get("items") or []
     exact = [i for i in items if i["id"] == target]
     if exact:
@@ -147,7 +168,12 @@ def pick(data: dict, target: str) -> dict:
     found = [i for i in items if n.isdigit() and i["n"] == int(n)]
     if found:
         return found[0]
-    raise ApiError(f"Nothing in your Inbox is {target}. See `stationhouse inbox`.")
+    threads = [i for i in items if n.isdigit() and thread_number(i) == int(n)]
+    if len(threads) == 1:
+        return threads[0]
+    if threads:
+        raise ApiError(f"More than one thread in your Inbox is #{n}. Use the list number: run stationhouse inbox")
+    raise ApiError(f"Nothing in your Inbox is {target}. Use the list number: run stationhouse inbox")
 
 
 def url_of(item: dict) -> str:

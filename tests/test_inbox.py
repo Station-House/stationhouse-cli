@@ -89,6 +89,16 @@ def test_inbox_says_when_hugging_face_and_github_didnt_load(signed_in, api, caps
     assert "Try again in a minute: stationhouse inbox" in out
 
 
+def test_inbox_says_when_closed_polls_didnt_load(signed_in, api, capsys):
+    api.routes[("GET", "/api/v1/me/inbox")] = (200, view(item("m1", 12), sources={"hf": "ok", "github": "ok", "polls": "failed"}))
+    _, out, _ = run(capsys, "inbox")
+    assert out.splitlines()[0] == "Inbox · 1 unread · Closed polls didn't load, so they're missing."
+    assert "Try again in a minute: stationhouse inbox" in out
+    api.routes[("GET", "/api/v1/me/inbox")] = (200, view(item("m1", 12), sources={"hf": "failed", "github": "failed", "polls": "failed"}))
+    _, out, _ = run(capsys, "inbox")
+    assert out.splitlines()[0] == "Inbox · 1 unread · Hugging Face, GitHub and closed polls didn't load, so they're missing."
+
+
 def test_inbox_with_nothing_unread_points_at_earlier_and_an_empty_one_says_how_to_fill_it(signed_in, api, capsys):
     api.routes[("GET", "/api/v1/me/inbox")] = (200, view(item("old", 90, unread=False)))
     _, out, _ = run(capsys, "inbox")
@@ -134,6 +144,30 @@ def test_inbox_done_still_works_as_read(signed_in, api, capsys):
     assert code == 1 and "Nothing in your Inbox is 99" in err
     code, _, err = run(capsys, "inbox", "done")
     assert code == 1 and "Which one?" in err
+
+
+def test_inbox_done_takes_a_pr_or_discussion_number_that_isnt_a_list_number(signed_in, api, capsys):
+    api.routes[("GET", "/api/v1/me/inbox")] = (200, INBOX)
+    api.routes[("POST", "/api/v1/me/inbox/read")] = (200, {"changed": 1, "inbox": INBOX})
+    code, out, _ = run(capsys, "inbox", "done", "212")
+    assert code == 0 and "Marked 1 as read." in out
+    assert api.calls[-1]["body"] == {"ids": ["pr212"]}
+    _, _, _ = run(capsys, "inbox", "read", "#41")
+    assert api.calls[-1]["body"] == {"ids": ["hf41"]}
+    # A list number wins over a PR number.
+    run(capsys, "inbox", "done", "2")
+    assert api.calls[-1]["body"] == {"ids": ["hf41"]}
+    posts = len([c for c in api.calls if c["method"] == "POST"])
+    code, _, err = run(capsys, "inbox", "done", "348")
+    assert code == 1 and "Nothing in your Inbox is 348. Use the list number: run stationhouse inbox" in err
+    assert len([c for c in api.calls if c["method"] == "POST"]) == posts
+
+
+def test_inbox_done_with_a_number_two_threads_share_asks_for_the_list_number(signed_in, api, capsys):
+    other = dict(PR, url="https://github.com/x/z/pull/212")
+    api.routes[("GET", "/api/v1/me/inbox")] = (200, view(item("pr212", 180, **PR), item("z212", 200, **other), *[item(f"m{n}", n) for n in range(1, 4)]))
+    code, _, err = run(capsys, "inbox", "done", "212")
+    assert code == 1 and "Use the list number: run stationhouse inbox" in err
 
 
 def test_inbox_open_opens_the_link_and_marks_it_read(signed_in, api, capsys, monkeypatch):
