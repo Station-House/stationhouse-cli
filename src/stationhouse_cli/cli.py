@@ -393,7 +393,7 @@ def cmd_mine(args):
 
 
 def cmd_inbox(args):
-    """The One Inbox (STA-318): every project you follow and Hugging Face and GitHub replies to you,
+    """The One Inbox (STA-318): news from your projects, and Hugging Face and GitHub replies to you,
     unless --project or --kind narrows it. open/read/done/unread mark items read or unread everywhere."""
     action, target = args.action, args.target
     if action in ("read", "done"):

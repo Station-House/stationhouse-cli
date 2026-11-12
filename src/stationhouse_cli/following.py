@@ -1,9 +1,10 @@
 """Join & Follow (STA-276–280): join, leave, follow, unfollow, the same two verbs as the website's
 project header, and `following`, the list on Preferences · Following.
 
-Join says "I work here" and follows the project too. Follow says "I want to hear about it". A member
-who unfollows stays a member and hears nothing about the project but mentions of them and tasks that
-are theirs. Leaving keeps the follow. Page follows are separate: you follow a page you wrote, own,
+Join says "I work here" and follows the project too. Follow says "I want to hear about it": without
+joining, that's its Project updates alone (STA-388). A member who unfollows stays a member and hears
+none of the project's news; mentions of them, and pages they follow (their tasks among them), still
+reach them. Leaving keeps the follow. Page follows are separate: you follow a page you wrote, own,
 commented on or were mentioned on, and can follow or unfollow one yourself. A project-management
 task is a page too: `follow 12` (or `<project>#12`) finds it by its number and follows its page.
 
@@ -80,18 +81,10 @@ def render_change(command: str, change: dict, out=print) -> None:
     if command == "join":
         if not changed:
             out(f"You're already a member of {title}.")
-        elif following:
+        else:
+            # Joining always follows: the platform takes back an unfollow left from before.
             out(f"Joined {title}. You follow it too. {member_hears(mode)}")
             out(f"  Stay a member but hear nothing: stationhouse unfollow {pid}")
-        else:
-            if mode == "full":
-                out(f"Joined {title}. You'd unfollowed it, so its new posts and tasks don't reach you. "
-                    "Mentions of you, and pages you follow (your tasks among them), still do.")
-            elif mode == "discussions":
-                out(f"Joined {title}. You'd unfollowed it, so its new posts don't reach you. Mentions of you, and pages you follow, still do.")
-            else:
-                out(f"Joined {title}. You'd unfollowed it, so its Project updates aren't emailed to you.")
-            out(f"  Hear about it: stationhouse follow {pid}")
     elif command == "leave":
         tasks = " Tasks you're on stay yours." if mode == "full" else ""
         if not changed:
