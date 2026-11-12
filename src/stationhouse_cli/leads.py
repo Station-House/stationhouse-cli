@@ -617,7 +617,7 @@ def cmd_task_new(args):
     title = " ".join(args.title)
     rail = _rail(project) if args.milestone else None
     milestone = _pick_milestone(rail, args.milestone) if rail else None
-    body = {"title": title, "body": args.body or "", "start": "open"}
+    body = {"title": title, "body": args.body or "", "start": "open", **(getattr(args, "details", None) or {})}
     person, people = None, {}
     if args.offer:
         people = _people(project)

@@ -16,6 +16,14 @@
     "mine": false,
     "updatedAt": "2026-11-07T09:00:00.000Z",
     "url": "http://localhost/marin-neuron-atlas/tasks/14",
+    "tags": [],
+    "dueOn": null,
+    "reviews": {
+      "required": 0,
+      "approvals": 0
+    },
+    "template": false,
+    "archived": false,
     "projectUrl": "http://localhost/marin-neuron-atlas",
     "body": "Same items, base vs chat.",
     "version": 1,
@@ -61,6 +69,9 @@
       }
     ],
     "following": true,
+    "reviewHistory": null,
+    "copies": null,
+    "copyOf": null,
     "can": {
       "claim": false,
       "release": false,
@@ -71,7 +82,11 @@
       "propose": false,
       "addOwners": false,
       "removeOwners": false,
-      "changeSubtasks": false
+      "changeSubtasks": false,
+      "review": false,
+      "startCopy": false,
+      "drop": false,
+      "archive": false
     }
   }
 }

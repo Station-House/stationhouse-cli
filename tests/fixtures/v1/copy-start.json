@@ -1,0 +1,105 @@
+{
+  "task": {
+    "model": "project_management",
+    "id": "00000000-0000-4000-8000-000000000133",
+    "number": 15,
+    "projectId": "marin-neuron-atlas",
+    "title": "Submit a hillclimbing experiment",
+    "state": "claimed",
+    "owners": [
+      {
+        "memberId": "sub-bo",
+        "name": "bo-tester",
+        "you": true
+      }
+    ],
+    "milestone": null,
+    "parentId": "00000000-0000-4000-8000-000000000129",
+    "subtasks": {
+      "done": 0,
+      "total": 0
+    },
+    "mine": true,
+    "updatedAt": "2026-11-07T09:00:00.000Z",
+    "url": "http://localhost/marin-neuron-atlas/tasks/15",
+    "tags": [],
+    "dueOn": null,
+    "reviews": {
+      "required": 1,
+      "approvals": 0
+    },
+    "template": false,
+    "archived": false,
+    "projectUrl": "http://localhost/marin-neuron-atlas",
+    "body": "## What I tried\n\n## Result",
+    "version": 1,
+    "author": {
+      "memberId": "sub-bo",
+      "name": "bo-tester",
+      "you": true
+    },
+    "parent": {
+      "id": "00000000-0000-4000-8000-000000000129",
+      "title": "Submit a hillclimbing experiment"
+    },
+    "subtaskRows": [],
+    "proposal": null,
+    "feed": [
+      {
+        "kind": "created",
+        "id": "00000000-0000-4000-8000-000000000135",
+        "at": "2026-11-07T09:00:00.000Z",
+        "by": {
+          "memberId": "sub-bo",
+          "name": "bo-tester",
+          "you": true
+        },
+        "text": "you created it"
+      },
+      {
+        "kind": "claimed",
+        "id": "00000000-0000-4000-8000-000000000136",
+        "at": "2026-11-07T09:00:00.000Z",
+        "by": {
+          "memberId": "sub-bo",
+          "name": "bo-tester",
+          "you": true
+        },
+        "text": "you claimed it"
+      }
+    ],
+    "following": true,
+    "reviewHistory": {
+      "required": 1,
+      "approvals": 0,
+      "entries": [],
+      "waitingOn": [],
+      "yours": null
+    },
+    "copies": null,
+    "copyOf": {
+      "id": "00000000-0000-4000-8000-000000000129",
+      "number": 14,
+      "title": "Submit a hillclimbing experiment"
+    },
+    "can": {
+      "claim": false,
+      "release": false,
+      "states": [
+        "doing",
+        "in_review"
+      ],
+      "edit": false,
+      "decide": false,
+      "reopen": false,
+      "propose": false,
+      "addOwners": true,
+      "removeOwners": false,
+      "changeSubtasks": false,
+      "review": false,
+      "startCopy": false,
+      "drop": true,
+      "archive": false
+    }
+  }
+}

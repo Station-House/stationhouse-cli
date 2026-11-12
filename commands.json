@@ -86,9 +86,11 @@
     "sources": [],
     "task": [
       "approve",
+      "archive",
       "claim",
       "create",
       "decline",
+      "drop",
       "edit",
       "milestone",
       "new",
@@ -98,9 +100,12 @@
       "release",
       "reopen",
       "request",
+      "review",
       "send-back",
       "show",
-      "subtask"
+      "start",
+      "subtask",
+      "unarchive"
     ],
     "tasks": [],
     "todo": [],

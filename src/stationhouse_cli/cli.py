@@ -14,7 +14,7 @@ from datetime import datetime
 from importlib import resources
 from pathlib import Path
 
-from . import (__version__, chat, config, design, discussions, email_switches, explore as explore_mod, following, gate, inbox, leads, pm,
+from . import (__version__, activity_log, chat, config, design, discussions, email_switches, explore as explore_mod, following, gate, inbox, leads, pm,
                projects, research, sources, traces, train, updates, versioncheck, wizard, work)
 from .auth import (AuthError, DeviceLoginUnavailable, WrongCodeError, current_credentials, device_login,
                    is_platform_page, login, login_with_email_code, normalize_email, request_email_code, sign_out)
@@ -210,7 +210,7 @@ def cmd_tasks(args):
     project = projects.resolve(args.project)
     out = request("GET", projects.project_path(project, "/tasks"))
     if not pm.is_pm(out):
-        if args.state or args.milestone or args.mine:
+        if args.state or args.milestone or args.mine or args.needs_review or args.tag:
             raise ApiError(f"{project} hasn't moved to project management yet, so its tasks can't be filtered. "
                            "Try `stationhouse unclaimed` or `stationhouse find-work`.")
         _emit(args, out, pm.render_catalog_list)
@@ -220,7 +220,7 @@ def cmd_tasks(args):
     except ValueError as e:
         raise ApiError(str(e)) from None
     milestone = _milestone(out, args.milestone)["id"] if args.milestone else None
-    shown = pm.filtered(out, states, milestone, args.mine, args.all)
+    shown = pm.filtered(out, states, milestone, args.mine, args.all, needs_review=args.needs_review, tag=args.tag)
     # --json: the platform's answer as it is, or narrowed as asked.
     _emit(args, pm.as_json(shown) if shown["narrowed"] else out, lambda d: pm.render_list(shown, project))
 
@@ -596,13 +596,17 @@ def cmd_propose(args):
 def cmd_task_new(args):
     if args.offer:
         # Offered on create (STA-307): leads only, an Open task, through the board's route that takes the offer.
-        return leads.cmd_task_new(argparse.Namespace(**{**vars(args), "body": _body(args)}))
+        return leads.cmd_task_new(argparse.Namespace(**{**vars(args), "body": _body(args), "details": _details(args, editing=False)}))
     title = " ".join(args.title).strip()
     project = _pm_project(args.project)
+    details = _details(args, editing=False)
     milestone = _milestone(request("GET", projects.project_path(project, "/tasks")), args.milestone) if args.milestone else None
-    out = request("POST", projects.project_path(project, "/tasks"),
-                  {"title": title, "body": _body(args), "start": "open" if args.open else "draft"})
+    # A template takes copies once it's Open, so --template opens it.
+    start = "open" if args.open or details.get("template") else "draft"
+    out = _with_details_errors(args, project, lambda: request("POST", projects.project_path(project, "/tasks"),
+                                                              {"title": title, "body": _body(args), "start": start, **details}))
     typed = f"{project}#{out['task']['number']}" if args.project else str(out["task"]["number"])
+    render = (lambda d: pm.render_created(d, project, typed)) if details else (lambda d: pm.render_new(d, project, typed))
     if milestone:
         # A second call: the task exists whatever it answers, so a failure here must say so.
         try:
@@ -613,7 +617,46 @@ def cmd_task_new(args):
             failed = ApiError(f"{what} #{out['task']['number']} was created without its milestone ({milestone['title']}): {e}", e.status, e.body)
             failed.hint = f'Set it: stationhouse task milestone {typed} "{milestone["title"]}"'
             raise failed from None
-    _emit(args, out, lambda d: pm.render_new(d, project, typed))
+    _emit(args, out, render)
+
+
+def _details(args, editing):
+    """The details a lead sets from --tag, --untag, --due, --reviews and --template (STA-376 to
+    STA-382), in the platform's words: only those given. On `task edit`, tags are added and removed."""
+    details = {}
+    tags = [t for t in (getattr(args, "tag", None) or []) if t.strip()]
+    untags = [t for t in (getattr(args, "untag", None) or []) if t.strip()]
+    if editing:
+        if tags:
+            details["addTags"] = tags
+        if untags:
+            details["removeTags"] = untags
+    elif tags:
+        details["tags"] = tags
+    due = getattr(args, "due", None)
+    if due is not None:
+        details["dueOn"] = None if due.strip().lower() in ("none", "-", "") else due.strip()
+    if getattr(args, "reviews", None) is not None:
+        details["reviewsRequired"] = args.reviews
+    template = getattr(args, "template", None)
+    if template is not None:
+        details["template"] = template
+    return details
+
+
+def _with_details_errors(args, project, call):
+    """A write that sets details, its refusals in the CLI's words: a past --due, a member's --tag."""
+    try:
+        return call()
+    except ApiError as e:
+        message = str(e)
+        if e.status == 400 and message.startswith("That date has passed"):
+            raise ApiError(f"--due {args.due} has passed. Use today or later, or leave it out.", e.status, e.body) from None
+        if e.status == 400 and message.startswith("Give the deadline as a date"):
+            raise ApiError(f"--due {args.due} isn't a date. Give it as YYYY-MM-DD, or none to clear it.", e.status, e.body) from None
+        if e.status == 403 and message.startswith("Only the project's leads set"):
+            raise ApiError(f"Only {project}'s leads can change a task's tags, deadline, reviews or template.", e.status, e.body) from None
+        raise
 
 
 def _decision(suffix, body_of=None, method="POST"):
@@ -999,17 +1042,57 @@ def cmd_unassign(args):
 
 
 def cmd_task_edit(args):
-    if args.title is None and args.body is None and args.body_file is None:
-        raise ApiError("Say what to change: --title, -b/--body or --body-file.")
-    _, seen = projects.task_call("GET", args.task_id, "", args.project)
+    details = _details(args, editing=True)
+    text = args.title is not None or args.body is not None or args.body_file is not None
+    if not text and not details:
+        raise ApiError("Say what to change: --title, -b/--body or --body-file; leads: --tag, --untag, --due, --reviews or --template.")
+    project, seen = projects.task_call("GET", args.task_id, "", args.project)
     if not pm.is_pm(seen):
         raise ApiError("Only project-management tasks are edited here; edit a catalog task on the website.")
     t = seen["task"]
-    edit = {"title": args.title if args.title is not None else t["title"],
-            "body": _body(args) if (args.body is not None or args.body_file) else t["body"],
-            "baseVersion": t["version"]}
-    _, out = _task_write(args, "PATCH", "", edit)
+    out = None
+    if text:
+        edit = {"title": args.title if args.title is not None else t["title"],
+                "body": _body(args) if (args.body is not None or args.body_file) else t["body"],
+                "baseVersion": t["version"]}
+        _, out = _task_write(args, "PATCH", "", edit)
+    if details:
+        _, out = _with_details_errors(args, t["projectId"], lambda: _task_write(args, "PUT", "/details", details))
+        return _emit(args, out, pm.render_details)
     _emit(args, out, lambda d: print(f"Saved {pm.named(d['task'])}."))
+
+
+def cmd_task_review(args):
+    if args.request_changes is not None:
+        note = args.request_changes.strip()
+        if not note:
+            raise ApiError("Say what to change: --request-changes \"<what to change>\"")
+        review = {"verdict": "changes_requested", "note": note}
+    else:
+        review = {"verdict": "approved", "note": (args.message or "").strip() or None}
+    _, out = _task_write(args, "POST", "/review", review, hint=pm.review_hint)
+    _emit(args, out, lambda d: pm.render_review(d, review["verdict"]))
+
+
+def cmd_task_start(args):
+    _, out = _task_write(args, "POST", "/copies", hint=pm.start_hint)
+    _emit(args, out, lambda d: pm.render_started(d, args.task_id))
+
+
+def cmd_task_drop(args):
+    _, out = _task_write(args, "POST", "/drop")
+    _emit(args, out, lambda d: pm.render_dropped(d, args.task_id))
+
+
+def _archive(archived):
+    def run(args):
+        _, out = _task_write(args, "PUT", "/archived", {"archived": archived})
+        _emit(args, out, lambda d: pm.render_archived(d, args.task_id))
+    return run
+
+
+cmd_task_archive = _archive(True)
+cmd_task_unarchive = _archive(False)
 
 
 def cmd_task_milestone(args):
@@ -1387,6 +1470,13 @@ def cmd_update_latest(args):
 
 
 def cmd_activity(args):
+    if args.member:
+        # Your own log, across every project unless --project names one (STA-383).
+        data = activity_log.fetch(getattr(args, "project_id", None) or getattr(args, "project", None), args.since)
+        _emit(args, data, activity_log.render)
+        return
+    if args.since:
+        raise ApiError("--since is for your own log: stationhouse activity --member --since this-month")
     project = _update_project(args)
     only = next((f for f in updates.FILTERS if getattr(args, f.replace("-", "_"), False)), None)
     data = updates.activity(project, only, args.all)
@@ -1524,6 +1614,21 @@ def _body_args(sp):
     g.add_argument("--body-file", metavar="FILE", help="read the body from FILE (- for stdin)")
 
 
+def _detail_args(sp, editing):
+    """Leads: --tag, --untag, --due, --reviews and --template on `task new` and `task edit`."""
+    sp.add_argument("--tag", action="append", metavar="TAG", help="leads: add this tag (again for more)")
+    if editing:
+        sp.add_argument("--untag", action="append", metavar="TAG", help="leads: take this tag off (again for more)")
+    sp.add_argument("--due", metavar="DATE", help="leads: its deadline, YYYY-MM-DD" + (" (none: clear it)" if editing else ""))
+    sp.add_argument("--reviews", type=int, metavar="N", help="leads: approvals it needs to complete from In review (0: none)")
+    if editing:
+        g = sp.add_mutually_exclusive_group()
+        g.add_argument("--template", action="store_true", default=None, help="leads: make it a template members copy")
+        g.add_argument("--no-template", dest="template", action="store_false", help="leads: stop it being a template (no copies yet)")
+    else:
+        sp.add_argument("--template", action="store_true", default=None, help="leads: a template members start their own copies of (opens it)")
+
+
 def build_parser():
     p = argparse.ArgumentParser(
         prog="stationhouse",
@@ -1569,6 +1674,8 @@ def build_parser():
     ts.add_argument("--milestone", help="only this milestone (the start of its title, or its id)")
     ts.add_argument("--mine", action="store_true", help="only the tasks you own")
     ts.add_argument("--all", action="store_true", help="Completed ones too")
+    ts.add_argument("--needs-review", action="store_true", help="only the tasks In review that you can review (not your own)")
+    ts.add_argument("--tag", help="only the tasks with this tag")
     add("who", cmd_who, "who is working on a task", task=True)
     add("context", cmd_context, "a task's neighbourhood: people, PRs and their latest comments", task=True)
     add("mine", cmd_mine, "every task you're on, in every project").add_argument(
@@ -1668,6 +1775,7 @@ def build_parser():
     tn.add_argument("--open", action="store_true", help="leads: open it now, for anyone who joined to claim")
     tn.add_argument("--milestone", help="put it in this milestone: the start of its title (with --offer, or its number)")
     tn.add_argument("--offer", metavar="PERSON", help="leads: open it and offer it to this member: their name (or its start), or member id")
+    _detail_args(tn, editing=False)
     add("open", cmd_task_open, "leads: open a Draft", task=True, under=tsub)
     add("send-back", cmd_task_send_back, "leads: send a Proposal back to its author as a Draft, with your comment",
         task=True, under=tsub).add_argument("-m", "--message", required=True, help="your comment for its author")
@@ -1678,6 +1786,19 @@ def build_parser():
     te = add("edit", cmd_task_edit, "change a task's title or body (leads; its author while it's a Draft or Proposed)", task=True, under=tsub)
     te.add_argument("--title")
     _body_args(te)
+    _detail_args(te, editing=True)
+    rv = add("review", cmd_task_review, "review a task In review that you don't own: approve it, or ask for changes",
+             task=True, under=tsub)
+    verdict = rv.add_mutually_exclusive_group(required=True)
+    verdict.add_argument("--approve", action="store_true", help="approve it")
+    verdict.add_argument("--request-changes", nargs="?", const="", metavar="NOTE", help="ask for changes, saying what to change")
+    rv.add_argument("-m", "--message", help="with --approve: a note for its owners")
+    add("start", cmd_task_start, "start your own copy of a template: it's yours, Claimed, with the template's brief",
+        task=True, under=tsub)
+    add("drop", cmd_task_drop, "drop your copy of a template (kept, archived, once someone commented or reviewed it)",
+        task=True, under=tsub)
+    add("archive", cmd_task_archive, "leads: archive a template, so it takes no new copies", task=True, under=tsub)
+    add("unarchive", cmd_task_unarchive, "leads: unarchive a template", task=True, under=tsub)
     add("milestone", cmd_task_milestone, "put a task in a milestone (the start of its title), or none", task=True,
         under=tsub).add_argument("milestone", help="the milestone, or none")
     st = add("subtask", cmd_task_subtask, "add a subtask to a task you own (leads: any task)", task=True, under=tsub)
@@ -1743,6 +1864,9 @@ def build_parser():
         only.add_argument(f"--{f}", action="store_true",
                           help="only pull requests and discussions from its Hugging Face & GitHub repos" if f == "hf-github" else f"only {f}")
     act.add_argument("--all", action="store_true", help="everything, not just the latest 30")
+    act.add_argument("--member", action="store_true",
+                     help="your own activity log instead: counts and the date of the last one (only you see it)")
+    act.add_argument("--since", metavar="PERIOD", help="with --member: all, this-month, this-week or a date (YYYY-MM-DD)")
 
     src = project(add("sources", cmd_sources, "a project's Hugging Face & GitHub repos; leads: add, remove, hide, show"))
     src.add_argument("words", nargs="*", metavar="[action] project [link|thread]",

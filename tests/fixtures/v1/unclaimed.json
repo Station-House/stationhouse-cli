@@ -56,6 +56,14 @@
           "mine": true,
           "updatedAt": "2026-11-07T09:00:00.000Z",
           "url": "http://localhost/marin-neuron-atlas/tasks/1",
+          "tags": [],
+          "dueOn": null,
+          "reviews": {
+            "required": 0,
+            "approvals": 0
+          },
+          "template": false,
+          "archived": false,
           "subtaskRows": [
             {
               "model": "project_management",
@@ -76,7 +84,15 @@
               },
               "mine": false,
               "updatedAt": "2026-11-08T20:00:00.000Z",
-              "url": "http://localhost/marin-neuron-atlas/tasks/8"
+              "url": "http://localhost/marin-neuron-atlas/tasks/8",
+              "tags": [],
+              "dueOn": null,
+              "reviews": {
+                "required": 0,
+                "approvals": 0
+              },
+              "template": false,
+              "archived": false
             }
           ]
         },
@@ -100,6 +116,14 @@
           "mine": false,
           "updatedAt": "2026-11-07T16:00:00.000Z",
           "url": "http://localhost/marin-neuron-atlas/tasks/2",
+          "tags": [],
+          "dueOn": null,
+          "reviews": {
+            "required": 0,
+            "approvals": 0
+          },
+          "template": false,
+          "archived": false,
           "subtaskRows": []
         },
         {
@@ -127,6 +151,14 @@
           "mine": false,
           "updatedAt": "2026-11-07T23:00:00.000Z",
           "url": "http://localhost/marin-neuron-atlas/tasks/3",
+          "tags": [],
+          "dueOn": null,
+          "reviews": {
+            "required": 0,
+            "approvals": 0
+          },
+          "template": false,
+          "archived": false,
           "subtaskRows": [
             {
               "model": "project_management",
@@ -147,7 +179,15 @@
               },
               "mine": false,
               "updatedAt": "2026-11-09T03:00:00.000Z",
-              "url": "http://localhost/marin-neuron-atlas/tasks/11"
+              "url": "http://localhost/marin-neuron-atlas/tasks/11",
+              "tags": [],
+              "dueOn": null,
+              "reviews": {
+                "required": 0,
+                "approvals": 0
+              },
+              "template": false,
+              "archived": false
             }
           ]
         }
@@ -181,6 +221,14 @@
           "mine": false,
           "updatedAt": "2026-11-08T06:00:00.000Z",
           "url": "http://localhost/marin-neuron-atlas/tasks/5",
+          "tags": [],
+          "dueOn": null,
+          "reviews": {
+            "required": 0,
+            "approvals": 0
+          },
+          "template": false,
+          "archived": false,
           "subtaskRows": []
         }
       ]
@@ -205,6 +253,14 @@
           "mine": false,
           "updatedAt": "2026-11-08T13:00:00.000Z",
           "url": "http://localhost/marin-neuron-atlas/tasks/6",
+          "tags": [],
+          "dueOn": null,
+          "reviews": {
+            "required": 0,
+            "approvals": 0
+          },
+          "template": false,
+          "archived": false,
           "subtaskRows": []
         }
       ]

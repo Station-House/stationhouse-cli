@@ -97,17 +97,27 @@ def match_milestone(milestones: list, text: str) -> list:
     return exact or [m for m in milestones if m["title"].lower().startswith(want)]
 
 
-def filtered(data: dict, states=None, milestone=None, mine=False, everything=False) -> dict:
-    """The list narrowed as `tasks` was asked: by state, milestone and mine; Completed only with --all
-    (or when asked for by --state). A parent stays when one of its subtasks matches, and the matching
-    subtasks are listed under it."""
-    narrowed = states is not None or milestone is not None or mine
+def has_tag(task: dict, tag: str) -> bool:
+    """True if the task has this tag, in any letter case (the platform's tags match so)."""
+    want = tag.strip().lower()
+    return any(t.lower() == want for t in task.get("tags") or [])
+
+
+def filtered(data: dict, states=None, milestone=None, mine=False, everything=False, needs_review=False, tag=None) -> dict:
+    """The list narrowed as `tasks` was asked: by state, milestone, mine, the ones waiting for your
+    review and a tag; Completed only with --all (or when asked for by --state). A parent stays when one
+    of its subtasks matches, and the matching subtasks are listed under it."""
+    narrowed = states is not None or milestone is not None or mine or needs_review or tag is not None
 
     def keep(t):
         if states is not None:
             if t["state"] not in states:
                 return False
         elif t["state"] == "completed" and not everything:
+            return False
+        if needs_review and not t.get("needsYourReview"):
+            return False
+        if tag is not None and not has_tag(t, tag):
             return False
         return not mine or t.get("mine")
 
@@ -122,18 +132,20 @@ def filtered(data: dict, states=None, milestone=None, mine=False, everything=Fal
                 rows.append({**t, "shownSubtasks": subs, "matches": keep(t)})
         groups.append({"milestone": g["milestone"], "tasks": rows})
     proposals = data.get("proposals", [])
-    if milestone is not None or (states is not None and "proposed" not in states):
+    if milestone is not None or needs_review or (states is not None and "proposed" not in states):
         proposals = []
+    elif tag is not None:
+        proposals = [p for p in proposals if has_tag(p, tag)]
     elif mine:
         proposals = [p for p in proposals if (p.get("proposer") or {}).get("you")]
-    return {**data, "groups": groups, "proposals": proposals, "narrowed": narrowed}
+    return {**data, "groups": groups, "proposals": proposals, "narrowed": narrowed, "needsReview": needs_review, "tag": tag}
 
 
 def as_json(shown: dict) -> dict:
     """A narrowed list in the platform's shape: each row's `subtaskRows` are the ones that matched."""
     groups = [{"milestone": g["milestone"], "tasks": [{**{k: v for k, v in t.items() if k not in ("shownSubtasks", "matches")}, "subtaskRows": t["shownSubtasks"]}
                                                       for t in g["tasks"]]} for g in shown["groups"] if g["tasks"]]
-    return {**{k: v for k, v in shown.items() if k != "narrowed"}, "groups": groups}
+    return {**{k: v for k, v in shown.items() if k not in ("narrowed", "needsReview", "tag")}, "groups": groups}
 
 
 def render_list(data: dict, project: str, unclaimed: bool = False) -> None:
@@ -141,7 +153,19 @@ def render_list(data: dict, project: str, unclaimed: bool = False) -> None:
     proposals = data.get("proposals", [])
     # The tasks that answer what was asked: a parent listed only for its subtasks doesn't count.
     count = sum(t.get("matches", True) + len(t["shownSubtasks"]) for g in groups for t in g["tasks"]) + len(proposals)
-    print(dim(f"{project} · project management · {count} task{'s' if count != 1 else ''}"))
+    tasks_word = f"{count} task{'s' if count != 1 else ''}"
+    reviewing = data.get("needsReview")
+    if reviewing:
+        if count == 0:
+            print(f"Nothing needs a review you can give in {project}.")
+            return
+        print(dim(f"{project} · {tasks_word} need{'s' if count == 1 else ''} a review you can give"))
+    elif data.get("tag") is not None:
+        # The tag as the project writes it, whatever case it was typed in.
+        named = next((tag for g in groups for t in g["tasks"] for tag in t.get("tags") or [] if tag.lower() == data["tag"].strip().lower()), data["tag"])
+        print(dim(f"{project} · {tasks_word} tagged {named}"))
+    else:
+        print(dim(f"{project} · project management · {tasks_word}"))
     if count == 0:
         print()
         if unclaimed or data.get("narrowed"):
@@ -154,15 +178,20 @@ def render_list(data: dict, project: str, unclaimed: bool = False) -> None:
     rows = tops + subs
     # A subtask's number sits two further in, under its parent's, and the columns after it still line up.
     num_w = max([len("#" + str(t["number"])) for t in tops + proposals] + [len("#" + str(s["number"])) + 2 for s in subs])
-    state_w = max((len(STATE_LABELS[t["state"]]) for t in rows), default=0)
+    state_w = max((len(_row_state(t)) for t in rows), default=0)
     title_w = max((len(t["title"]) for t in rows), default=0)
+    owners_w = max((len(_row_owners(t)) for t in rows), default=0)
 
     def line(t, sub=False):
-        owners = people(t["owners"]) if t["owners"] else "·"
-        counts = t.get("subtasks") or {}
-        extra = f"   {counts['done']} of {counts['total']} subtasks" if counts.get("total") else ""
+        owners = _row_owners(t)
         number = ("  " if sub else "") + "#" + str(t["number"])
-        text = f"{number:<{num_w}}  {STATE_LABELS[t['state']]:<{state_w}}  {t['title']:<{title_w}}  {owners}{extra}".rstrip()
+        if reviewing:
+            # The approvals it has of those it needs (D4), where a row's meta goes.
+            reviews = t.get("reviews") or {}
+            extra = f"   {reviews.get('approvals', 0)} of {reviews.get('required', 0)}"
+        else:
+            extra = _row_meta(t)
+        text = f"{number:<{num_w}}  {_row_state(t):<{state_w}}  {t['title']:<{title_w}}  {owners:<{owners_w if reviewing else 0}}{extra}".rstrip()
         # A parent listed only for its subtasks is there for context: dimmed.
         return "  " + (text if t.get("matches", True) else dim(text))
 
@@ -181,9 +210,36 @@ def render_list(data: dict, project: str, unclaimed: bool = False) -> None:
         print()
         _print_proposals(proposals, num_w)
     print()
+    if reviewing:
+        print(dim("Review one: stationhouse task review <n> --approve | --request-changes \"<note>\""))
+        return
     print(dim("Claim one: stationhouse claim <number>.  More: stationhouse task <number>"))
     if not data.get("narrowed") and not unclaimed:
         print(dim("Only the open ones: stationhouse tasks --state unclaimed (or stationhouse unclaimed)"))
+
+
+def _row_state(t: dict) -> str:
+    """A row's state column: "Template" for a template (it has no state of its own to work)."""
+    return "Template" if t.get("template") else STATE_LABELS[t["state"]]
+
+
+def _row_owners(t: dict) -> str:
+    return people(t["owners"]) if t.get("owners") else "·"
+
+
+def _row_meta(t: dict) -> str:
+    """What follows a row's owners: a template's copies, else its subtasks; its deadline."""
+    parts = []
+    copies = t.get("copies")
+    counts = t.get("subtasks") or {}
+    if t.get("template"):
+        if copies:
+            parts.append(f"{copies['doing']} doing · {copies['done']} done")
+    elif counts.get("total"):
+        parts.append(f"{counts['done']} of {counts['total']} subtasks")
+    if t.get("dueOn"):
+        parts.append(f"due {_due(t['dueOn'])}")
+    return "".join(f"   {p}" for p in parts)
 
 
 def _print_proposals(proposals: list, num_w: int) -> None:
@@ -246,20 +302,105 @@ def _you_can(task: dict) -> str:
         parts.extend(["approve", "send back", "decline"])
     if can.get("reopen"):
         parts.append("reopen")
+    if can.get("review"):
+        parts.append("review")
+    if can.get("startCopy"):
+        parts.append("start your own copy")
+    if can.get("drop"):
+        parts.append("drop this copy")
+    if can.get("archive"):
+        parts.append("unarchive" if (task.get("copies") or {}).get("archived") else "archive")
     parts.append("comment")
     parts.append("unfollow" if task.get("following") else "follow")
     return "You can: " + " · ".join(parts)
 
 
+def approvals(n: int) -> str:
+    return f"{n} approval{'s' if n != 1 else ''}"
+
+
+def _details_line(t: dict) -> str | None:
+    """A task's tags, deadline and reviews in one line: "Writing · due Nov 20 · needs 1 approval"."""
+    parts = list(t.get("tags") or [])
+    if t.get("dueOn"):
+        parts.append(f"due {_due(t['dueOn'])}")
+    required = (t.get("reviews") or {}).get("required", 0)
+    if required and not t.get("template"):
+        parts.append(f"needs {approvals(required)}")
+    return " · ".join(parts) or None
+
+
+def _copy_list(copies: list) -> str:
+    return ", ".join(f"#{c['number']} {'Dropped' if c.get('dropped') else STATE_LABELS.get(c['state'], c['state'])}" for c in copies)
+
+
+def _render_template(t: dict) -> None:
+    copies = t.get("copies") or {}
+    meta = [f"#{t['number']}", "Template"]
+    if t.get("milestone"):
+        meta.append(t["milestone"]["title"])
+    meta.append(t["projectId"])
+    print(dim(" · ".join(meta)))
+    counts = [f"{copies.get('doing', 0)} doing", f"{copies.get('done', 0)} done"]
+    required = (t.get("reviews") or {}).get("required", 0)
+    if required:
+        counts.append(f"each copy needs {required} review{'s' if required != 1 else ''}")
+    print(" · ".join(counts))
+    if t.get("tags"):
+        print(dim(" · ".join(t["tags"])))
+    if copies.get("archived"):
+        print(f"Archived by {person(copies['archived']['by'])} on {_day(copies['archived']['at'])}: it takes no new copies.")
+    if t.get("body", "").strip():
+        print()
+        for row in _wrap(t["body"].strip(), 76):
+            print(f"  {row}".rstrip())
+    print()
+    if copies.get("yours"):
+        print(f"Your copies: {_copy_list(copies['yours'])}")
+    if copies.get("others"):
+        print(f"Others' copies: {len(copies['others'])}")
+    if (t.get("can") or {}).get("startCopy"):
+        print(f"Start your own: stationhouse task start {t['number']}")
+
+
+def _render_reviews(t: dict) -> None:
+    """A task's reviews (STA-377): the count, each review oldest first, and who it waits on."""
+    reviews = t.get("reviewHistory")
+    if not reviews or (not reviews["required"] and not reviews["entries"]):
+        return
+    print()
+    print(f"Reviews: {reviews['approvals']} of {reviews['required']} approvals")
+    for entry in reviews["entries"]:
+        verdict = "approved" if entry["verdict"] == "approved" else "asked for changes"
+        note = f": {' '.join(entry['note'].split())}" if entry.get("note") else ""
+        print(f"  {_day(entry['at'])}  {person(entry['by'])} {verdict}{note}")
+    waiting = reviews.get("waitingOn") or []
+    if any(p.get("you") for p in waiting) and len(waiting) == 1:
+        print(dim("You asked for changes, so your approval is the one it needs (or a lead's)."))
+    elif waiting:
+        print(dim(f"Waiting on {people(waiting)}, who asked for changes: only their approval (or a lead) completes it."))
+
+
 def render_task(data: dict, whole_feed: bool = False) -> None:
     t = data["task"]
     print(t["title"])
+    if t.get("template"):
+        _render_template(t)
+        _render_feed(t, whole_feed)
+        print()
+        print(dim(_you_can(t)))
+        return
     meta = [f"#{t['number']}", STATE_LABELS[t["state"]]]
     if t.get("milestone"):
         meta.append(t["milestone"]["title"])
     meta.append(t["projectId"])
     print(dim(" · ".join(meta)))
-    if t.get("parent"):
+    details = _details_line(t)
+    if details:
+        print(dim(details))
+    if t.get("copyOf"):
+        print(f"Copy of: #{t['copyOf']['number']} {t['copyOf']['title']}" + (" (dropped)" if t.get("archived") else ""))
+    elif t.get("parent"):
         print(f"Part of: {t['parent']['title']}")
     if t["state"] in ("draft", "proposed", "declined") and t.get("proposal"):
         p = t["proposal"]
@@ -285,6 +426,13 @@ def render_task(data: dict, whole_feed: bool = False) -> None:
                 print(f"  ✓ {number:<{num_w}}  {s['title']}")
             else:
                 print(f"    {number:<{num_w}}  {s['title']:<{title_w}}  {STATE_LABELS[s['state']]}")
+    _render_reviews(t)
+    _render_feed(t, whole_feed)
+    print()
+    print(dim(_you_can(t)))
+
+
+def _render_feed(t: dict, whole_feed: bool) -> None:
     feed = t.get("feed") or []
     shown = feed if whole_feed else feed[-5:]
     if shown:
@@ -294,8 +442,6 @@ def render_task(data: dict, whole_feed: bool = False) -> None:
         for e in shown:
             for row in _feed_lines(e, date_w):
                 print(row)
-    print()
-    print(dim(_you_can(t)))
 
 
 def render_catalog_task(d: dict) -> None:
@@ -390,6 +536,17 @@ def render_move(data: dict, typed: str) -> None:
     if before == t["state"]:
         print(f"{_named(t)} is already {to}.")
         return
+    reviews = t.get("reviewHistory") or {}
+    if t["state"] == "in_review" and reviews.get("required"):
+        # Waiting for reviews (STA-376): who needs to approve, and who was told (Q2).
+        waiting = reviews.get("waitingOn") or []
+        if waiting:
+            told = f"it needs {people(waiting)}'s approval, and they were told"
+        else:
+            left = max(reviews["required"] - reviews.get("approvals", 0), 1)
+            told = f"it needs {approvals(left)}; {t['projectId']}'s followers were told"
+        print(f"◕ #{t['number']} is In review. {told[0].upper()}{told[1:]}.")
+        return
     print(f"{_named(t)}: {STATE_LABELS.get(before, before)} → {to}.")
     after = AFTER_MOVE.get(t["state"])
     if after:
@@ -472,6 +629,104 @@ def render_decision(action: str, data: dict, typed: str) -> None:
         print(dim(f"Changed your mind? stationhouse task reopen {ref}"))
     elif action == "reopen":
         print(f"Reopened {_named(t)}. It's {state} again, waiting for a lead.")
+
+
+# ---------------------------------------------------------------- reviews, templates, tags and deadlines (STA-376 to STA-382)
+
+def render_review(data: dict, verdict: str) -> None:
+    """`task review`: what the review did to the task, as the frames word it."""
+    t = data["task"]
+    owners = people([o for o in t.get("owners", []) if not o.get("you")]) or "its owners"
+    reviews = t.get("reviewHistory") or {}
+    if verdict == "changes_requested":
+        print(f"↺ Asked for changes on #{t['number']}. It's back in Doing, and {owners} {'was' if len(t.get('owners', [])) == 1 else 'were'} told.")
+        print("  When it's in review again, your approval is the one it needs.")
+        return
+    print(f"✓ Approved {_named(t)}.")
+    count = f"{reviews.get('approvals', 0)} of {reviews.get('required', 0)} approvals"
+    if t["state"] == "completed":
+        print(f"  {count}, so it's Completed. {owners} {'was' if len(t.get('owners', [])) == 1 else 'were'} told.")
+    elif reviews.get("waitingOn"):
+        print(f"  {count}. It still waits on {people(reviews['waitingOn'])}, who asked for changes.")
+    else:
+        print(f"  {count}. It needs {approvals(reviews.get('required', 0) - reviews.get('approvals', 0))} more.")
+
+
+def review_hint(message: str, task: dict) -> str | None:
+    """The CLI's line under a refused review: who can review, or how it gets to In review."""
+    if message.startswith("You own"):
+        return f"Anyone else in {task['projectId']} can."
+    if message.startswith("Only a task that's In review"):
+        return "An owner submits it first: stationhouse move <n> review"
+    if message.startswith("Join this project"):
+        return f"Join: {task['projectUrl']}" if task.get("projectUrl") else None
+    return None
+
+
+def render_started(data: dict, template_typed: str) -> None:
+    """`task start`: the copy, and how to fill it in and submit it."""
+    t = data["task"]
+    template = t.get("copyOf") or {}
+    ref = ref_for(template_typed, t)
+    print(f"→ Started #{t['number']}, your copy of #{template.get('number')} {template.get('title', '')}. It's {STATE_LABELS.get(t['state'], t['state'])}.")
+    print(f"  The brief is in it to fill in: stationhouse task edit {ref} --body-file notes.md")
+    print(f"  When it's done: stationhouse move {ref} review")
+
+
+def start_hint(message: str, task: dict) -> str | None:
+    if message.startswith("Only a template has copies"):
+        return f"Claim it instead: stationhouse claim {task['number']}"
+    if message.startswith("Join this project"):
+        return f"Join: {task['projectUrl']}" if task.get("projectUrl") else None
+    return None
+
+
+def render_dropped(data: dict, typed: str) -> None:
+    template = data["template"]
+    if data["outcome"] == "deleted":
+        print(f"Dropped your copy #{split_ref(typed)[1]}. Nobody had said anything on it, so it's gone.")
+    else:
+        print(f"Dropped your copy #{split_ref(typed)[1]}. It's kept, archived, for its comments and reviews; it doesn't count as started.")
+    print(dim(f"Start another: stationhouse task start {template['number']}"))
+
+
+def render_archived(data: dict, typed: str) -> None:
+    t = data["task"]
+    copies = t.get("copies") or {}
+    total = len(copies.get("yours") or []) + len(copies.get("others") or [])
+    ref = ref_for(typed, t)
+    if t.get("archived"):
+        all_copies = f"all {total} copies" if total != 1 else "its copy"
+        print(f"Archived #{t['number']}: no new copies. The brief, its discussion and {all_copies if total else 'its history'} stay readable.")
+        print(f"Undo: stationhouse task unarchive {ref}")
+    else:
+        print(f"Unarchived #{t['number']}. Members can start copies again: stationhouse task start {ref}")
+
+
+def render_created(data: dict, project: str, typed: str) -> None:
+    """`task new` with details: a template, or the task with its tags, deadline and reviews."""
+    t = data["task"]
+    if t.get("template"):
+        print(f"Created template #{t['number']}. Members start their own: stationhouse task start {typed}")
+        return
+    where = f" · {t['milestone']['title']}" if t.get("milestone") else ""
+    print(f"Created #{t['number']} {t['title']} · {STATE_LABELS.get(t['state'], t['state'])}{where}")
+    details = _details_line(t)
+    if details:
+        print(f"  {details}")
+
+
+def render_details(data: dict) -> None:
+    """`task edit` with --tag/--untag/--due/--reviews/--template: what the task has now."""
+    t = data["task"]
+    parts = list(t.get("tags") or []) or ["no tags"]
+    parts.append(f"due {_due(t['dueOn'])}" if t.get("dueOn") else "no deadline")
+    required = (t.get("reviews") or {}).get("required", 0)
+    if required:
+        parts.append(f"needs {approvals(required)}")
+    if t.get("template"):
+        parts.append("a template")
+    print(f"Updated #{t['number']}: {' · '.join(parts)}")
 
 
 # ---------------------------------------------------------------- mine (STA-325)

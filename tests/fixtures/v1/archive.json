@@ -1,0 +1,123 @@
+{
+  "task": {
+    "model": "project_management",
+    "id": "00000000-0000-4000-8000-000000000129",
+    "number": 14,
+    "projectId": "marin-neuron-atlas",
+    "title": "Submit a hillclimbing experiment",
+    "state": "open",
+    "owners": [],
+    "milestone": null,
+    "parentId": null,
+    "subtasks": {
+      "done": 0,
+      "total": 0
+    },
+    "mine": false,
+    "updatedAt": "2026-11-07T09:00:00.000Z",
+    "url": "http://localhost/marin-neuron-atlas/tasks/14",
+    "tags": [],
+    "dueOn": null,
+    "reviews": {
+      "required": 1,
+      "approvals": 0
+    },
+    "template": true,
+    "archived": true,
+    "projectUrl": "http://localhost/marin-neuron-atlas",
+    "body": "## What I tried\n\n## Result",
+    "version": 1,
+    "author": {
+      "memberId": "sub-ada",
+      "name": "ada-tester",
+      "you": true
+    },
+    "parent": null,
+    "subtaskRows": [],
+    "proposal": null,
+    "feed": [
+      {
+        "kind": "created",
+        "id": "00000000-0000-4000-8000-000000000131",
+        "at": "2026-11-07T09:00:00.000Z",
+        "by": {
+          "memberId": "sub-ada",
+          "name": "ada-tester",
+          "you": true
+        },
+        "text": "you created it"
+      },
+      {
+        "kind": "opened",
+        "id": "00000000-0000-4000-8000-000000000132",
+        "at": "2026-11-07T09:00:00.000Z",
+        "by": {
+          "memberId": "sub-ada",
+          "name": "ada-tester",
+          "you": true
+        },
+        "text": "you opened it"
+      },
+      {
+        "kind": "archived",
+        "id": "00000000-0000-4000-8000-000000000142",
+        "at": "2026-11-07T23:00:00.000Z",
+        "by": {
+          "memberId": "sub-ada",
+          "name": "ada-tester",
+          "you": true
+        },
+        "text": "you archived it"
+      }
+    ],
+    "following": true,
+    "reviewHistory": null,
+    "copies": {
+      "doing": 1,
+      "done": 0,
+      "archived": {
+        "by": {
+          "memberId": "sub-ada",
+          "name": "ada-tester",
+          "you": true
+        },
+        "at": "2026-11-07T23:00:00.000Z"
+      },
+      "yours": [],
+      "others": [
+        {
+          "id": "00000000-0000-4000-8000-000000000137",
+          "number": 16,
+          "title": "Submit a hillclimbing experiment",
+          "state": "claimed",
+          "owners": [
+            {
+              "memberId": "sub-bo",
+              "name": "bo-tester"
+            }
+          ],
+          "dropped": false,
+          "updatedAt": "2026-11-07T16:00:00.000Z",
+          "url": "http://localhost/marin-neuron-atlas/tasks/16"
+        }
+      ]
+    },
+    "copyOf": null,
+    "can": {
+      "claim": false,
+      "release": false,
+      "states": [],
+      "edit": true,
+      "decide": false,
+      "reopen": false,
+      "propose": false,
+      "addOwners": false,
+      "removeOwners": false,
+      "changeSubtasks": false,
+      "review": false,
+      "startCopy": false,
+      "drop": false,
+      "archive": true
+    }
+  }
+}

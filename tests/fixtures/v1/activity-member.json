@@ -1,0 +1,82 @@
+{
+  "log": {
+    "name": "bo-tester",
+    "projectId": null,
+    "since": null,
+    "period": "all",
+    "projects": [
+      "marin-neuron-atlas"
+    ],
+    "leads": false,
+    "counts": {
+      "started": {
+        "count": 1,
+        "last": "2026-11-07T09:00:00.000Z"
+      },
+      "did": {
+        "count": 0,
+        "last": null
+      },
+      "reviewed": {
+        "count": 1,
+        "last": "2026-11-08T06:00:00.000Z"
+      },
+      "posts": {
+        "count": 0,
+        "last": null
+      },
+      "postComments": {
+        "count": 0,
+        "last": null
+      },
+      "taskComments": {
+        "count": 1,
+        "last": "2026-11-07T23:00:00.000Z"
+      },
+      "replies": {
+        "count": 0,
+        "last": null
+      },
+      "reactions": {
+        "count": 0,
+        "last": null,
+        "posts": 0,
+        "tasks": 0,
+        "comments": 0
+      },
+      "votes": {
+        "count": 0,
+        "last": null
+      },
+      "proposals": {
+        "count": 1,
+        "last": "2026-11-07T16:00:00.000Z",
+        "accepted": 0
+      },
+      "papers": {
+        "count": 0,
+        "last": null
+      },
+      "updates": {
+        "count": 0,
+        "last": null
+      },
+      "tasksCreated": {
+        "count": 0,
+        "last": null
+      },
+      "ruled": {
+        "count": 0,
+        "last": null
+      },
+      "completedAsLead": {
+        "count": 0,
+        "last": null
+      },
+      "edits": {
+        "count": 0,
+        "last": null
+      }
+    }
+  }
+}

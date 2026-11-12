@@ -25,6 +25,14 @@
     "mine": true,
     "updatedAt": "2026-11-07T09:00:00.000Z",
     "url": "http://localhost/marin-neuron-atlas/tasks/3",
+    "tags": [],
+    "dueOn": null,
+    "reviews": {
+      "required": 0,
+      "approvals": 0
+    },
+    "template": false,
+    "archived": false,
     "projectUrl": "http://localhost/marin-neuron-atlas",
     "body": "",
     "version": 1,
@@ -59,7 +67,15 @@
         },
         "mine": true,
         "updatedAt": "2026-11-08T06:00:00.000Z",
-        "url": "http://localhost/marin-neuron-atlas/tasks/9"
+        "url": "http://localhost/marin-neuron-atlas/tasks/9",
+        "tags": [],
+        "dueOn": null,
+        "reviews": {
+          "required": 0,
+          "approvals": 0
+        },
+        "template": false,
+        "archived": false
       },
       {
         "model": "project_management",
@@ -86,7 +102,15 @@
         },
         "mine": true,
         "updatedAt": "2026-11-08T13:00:00.000Z",
-        "url": "http://localhost/marin-neuron-atlas/tasks/10"
+        "url": "http://localhost/marin-neuron-atlas/tasks/10",
+        "tags": [],
+        "dueOn": null,
+        "reviews": {
+          "required": 0,
+          "approvals": 0
+        },
+        "template": false,
+        "archived": false
       },
       {
         "model": "project_management",
@@ -107,7 +131,15 @@
         },
         "mine": false,
         "updatedAt": "2026-11-08T20:00:00.000Z",
-        "url": "http://localhost/marin-neuron-atlas/tasks/11"
+        "url": "http://localhost/marin-neuron-atlas/tasks/11",
+        "tags": [],
+        "dueOn": null,
+        "reviews": {
+          "required": 0,
+          "approvals": 0
+        },
+        "template": false,
+        "archived": false
       },
       {
         "model": "project_management",
@@ -128,7 +160,15 @@
         },
         "mine": false,
         "updatedAt": "2026-11-10T07:00:00.000Z",
-        "url": "http://localhost/marin-neuron-atlas/tasks/14"
+        "url": "http://localhost/marin-neuron-atlas/tasks/14",
+        "tags": [],
+        "dueOn": null,
+        "reviews": {
+          "required": 0,
+          "approvals": 0
+        },
+        "template": false,
+        "archived": false
       }
     ],
     "proposal": null,
@@ -262,6 +302,9 @@
       }
     ],
     "following": true,
+    "reviewHistory": null,
+    "copies": null,
+    "copyOf": null,
     "can": {
       "claim": false,
       "release": true,
@@ -275,7 +318,11 @@
       "propose": false,
       "addOwners": true,
       "removeOwners": false,
-      "changeSubtasks": true
+      "changeSubtasks": true,
+      "review": false,
+      "startCopy": false,
+      "drop": false,
+      "archive": false
     }
   }
 }

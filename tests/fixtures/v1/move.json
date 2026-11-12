@@ -29,6 +29,14 @@
     "mine": true,
     "updatedAt": "2026-11-07T09:00:00.000Z",
     "url": "http://localhost/marin-neuron-atlas/tasks/1",
+    "tags": [],
+    "dueOn": null,
+    "reviews": {
+      "required": 0,
+      "approvals": 0
+    },
+    "template": false,
+    "archived": false,
     "projectUrl": "http://localhost/marin-neuron-atlas",
     "body": "Ask each model directly whether a given output was its own, over the\nshared 200-item set, and record accuracy with 95% intervals.\nDone when: the three numbers are in the Results tab with the notebook.",
     "version": 1,
@@ -62,7 +70,15 @@
         },
         "mine": false,
         "updatedAt": "2026-11-08T20:00:00.000Z",
-        "url": "http://localhost/marin-neuron-atlas/tasks/7"
+        "url": "http://localhost/marin-neuron-atlas/tasks/7",
+        "tags": [],
+        "dueOn": null,
+        "reviews": {
+          "required": 0,
+          "approvals": 0
+        },
+        "template": false,
+        "archived": false
       },
       {
         "model": "project_management",
@@ -83,7 +99,15 @@
         },
         "mine": false,
         "updatedAt": "2026-11-09T03:00:00.000Z",
-        "url": "http://localhost/marin-neuron-atlas/tasks/8"
+        "url": "http://localhost/marin-neuron-atlas/tasks/8",
+        "tags": [],
+        "dueOn": null,
+        "reviews": {
+          "required": 0,
+          "approvals": 0
+        },
+        "template": false,
+        "archived": false
       }
     ],
     "proposal": null,
@@ -204,6 +228,9 @@
       }
     ],
     "following": true,
+    "reviewHistory": null,
+    "copies": null,
+    "copyOf": null,
     "can": {
       "claim": false,
       "release": true,
@@ -217,7 +244,11 @@
       "propose": false,
       "addOwners": true,
       "removeOwners": false,
-      "changeSubtasks": true
+      "changeSubtasks": true,
+      "review": false,
+      "startCopy": false,
+      "drop": false,
+      "archive": false
     }
   },
   "from": "doing"

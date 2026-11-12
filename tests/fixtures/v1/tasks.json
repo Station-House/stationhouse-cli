@@ -56,6 +56,14 @@
           "mine": true,
           "updatedAt": "2026-11-07T09:00:00.000Z",
           "url": "http://localhost/marin-neuron-atlas/tasks/1",
+          "tags": [],
+          "dueOn": null,
+          "reviews": {
+            "required": 0,
+            "approvals": 0
+          },
+          "template": false,
+          "archived": false,
           "subtaskRows": [
             {
               "model": "project_management",
@@ -81,7 +89,15 @@
               },
               "mine": false,
               "updatedAt": "2026-11-09T03:00:00.000Z",
-              "url": "http://localhost/marin-neuron-atlas/tasks/7"
+              "url": "http://localhost/marin-neuron-atlas/tasks/7",
+              "tags": [],
+              "dueOn": null,
+              "reviews": {
+                "required": 0,
+                "approvals": 0
+              },
+              "template": false,
+              "archived": false
             },
             {
               "model": "project_management",
@@ -102,7 +118,15 @@
               },
               "mine": false,
               "updatedAt": "2026-11-09T10:00:00.000Z",
-              "url": "http://localhost/marin-neuron-atlas/tasks/8"
+              "url": "http://localhost/marin-neuron-atlas/tasks/8",
+              "tags": [],
+              "dueOn": null,
+              "reviews": {
+                "required": 0,
+                "approvals": 0
+              },
+              "template": false,
+              "archived": false
             }
           ]
         },
@@ -126,6 +150,14 @@
           "mine": false,
           "updatedAt": "2026-11-07T16:00:00.000Z",
           "url": "http://localhost/marin-neuron-atlas/tasks/2",
+          "tags": [],
+          "dueOn": null,
+          "reviews": {
+            "required": 0,
+            "approvals": 0
+          },
+          "template": false,
+          "archived": false,
           "subtaskRows": []
         },
         {
@@ -153,6 +185,14 @@
           "mine": false,
           "updatedAt": "2026-11-07T23:00:00.000Z",
           "url": "http://localhost/marin-neuron-atlas/tasks/3",
+          "tags": [],
+          "dueOn": null,
+          "reviews": {
+            "required": 0,
+            "approvals": 0
+          },
+          "template": false,
+          "archived": false,
           "subtaskRows": [
             {
               "model": "project_management",
@@ -178,7 +218,15 @@
               },
               "mine": false,
               "updatedAt": "2026-11-09T17:00:00.000Z",
-              "url": "http://localhost/marin-neuron-atlas/tasks/9"
+              "url": "http://localhost/marin-neuron-atlas/tasks/9",
+              "tags": [],
+              "dueOn": null,
+              "reviews": {
+                "required": 0,
+                "approvals": 0
+              },
+              "template": false,
+              "archived": false
             },
             {
               "model": "project_management",
@@ -204,7 +252,15 @@
               },
               "mine": false,
               "updatedAt": "2026-11-10T00:00:00.000Z",
-              "url": "http://localhost/marin-neuron-atlas/tasks/10"
+              "url": "http://localhost/marin-neuron-atlas/tasks/10",
+              "tags": [],
+              "dueOn": null,
+              "reviews": {
+                "required": 0,
+                "approvals": 0
+              },
+              "template": false,
+              "archived": false
             },
             {
               "model": "project_management",
@@ -225,7 +281,15 @@
               },
               "mine": false,
               "updatedAt": "2026-11-10T07:00:00.000Z",
-              "url": "http://localhost/marin-neuron-atlas/tasks/11"
+              "url": "http://localhost/marin-neuron-atlas/tasks/11",
+              "tags": [],
+              "dueOn": null,
+              "reviews": {
+                "required": 0,
+                "approvals": 0
+              },
+              "template": false,
+              "archived": false
             }
           ]
         }
@@ -264,6 +328,14 @@
           "mine": false,
           "updatedAt": "2026-11-08T06:00:00.000Z",
           "url": "http://localhost/marin-neuron-atlas/tasks/4",
+          "tags": [],
+          "dueOn": null,
+          "reviews": {
+            "required": 0,
+            "approvals": 0
+          },
+          "template": false,
+          "archived": false,
           "subtaskRows": []
         },
         {
@@ -286,6 +358,14 @@
           "mine": false,
           "updatedAt": "2026-11-08T13:00:00.000Z",
           "url": "http://localhost/marin-neuron-atlas/tasks/5",
+          "tags": [],
+          "dueOn": null,
+          "reviews": {
+            "required": 0,
+            "approvals": 0
+          },
+          "template": false,
+          "archived": false,
           "subtaskRows": []
         }
       ]
@@ -310,6 +390,14 @@
           "mine": false,
           "updatedAt": "2026-11-08T20:00:00.000Z",
           "url": "http://localhost/marin-neuron-atlas/tasks/6",
+          "tags": [],
+          "dueOn": null,
+          "reviews": {
+            "required": 0,
+            "approvals": 0
+          },
+          "template": false,
+          "archived": false,
           "subtaskRows": []
         }
       ]
@@ -333,6 +421,14 @@
       "mine": false,
       "updatedAt": "2026-11-10T14:00:00.000Z",
       "url": "http://localhost/marin-neuron-atlas/tasks/12",
+      "tags": [],
+      "dueOn": null,
+      "reviews": {
+        "required": 0,
+        "approvals": 0
+      },
+      "template": false,
+      "archived": false,
       "proposer": {
         "memberId": "sub-eve",
         "name": "eve-tester"
@@ -356,6 +452,14 @@
       "mine": false,
       "updatedAt": "2026-11-10T21:00:00.000Z",
       "url": "http://localhost/marin-neuron-atlas/tasks/13",
+      "tags": [],
+      "dueOn": null,
+      "reviews": {
+        "required": 0,
+        "approvals": 0
+      },
+      "template": false,
+      "archived": false,
       "proposer": {
         "memberId": "sub-bo",
         "name": "bo-tester",

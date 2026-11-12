@@ -24,6 +24,14 @@
     "mine": false,
     "updatedAt": "2026-11-07T09:00:00.000Z",
     "url": "http://localhost/marin-neuron-atlas/tasks/2",
+    "tags": [],
+    "dueOn": null,
+    "reviews": {
+      "required": 0,
+      "approvals": 0
+    },
+    "template": false,
+    "archived": false,
     "projectUrl": "http://localhost/marin-neuron-atlas",
     "body": "",
     "version": 1,
@@ -104,6 +112,9 @@
       }
     ],
     "following": true,
+    "reviewHistory": null,
+    "copies": null,
+    "copyOf": null,
     "can": {
       "claim": false,
       "release": false,
@@ -118,7 +129,11 @@
       "propose": false,
       "addOwners": true,
       "removeOwners": true,
-      "changeSubtasks": true
+      "changeSubtasks": true,
+      "review": false,
+      "startCopy": false,
+      "drop": false,
+      "archive": false
     }
   }
 }
