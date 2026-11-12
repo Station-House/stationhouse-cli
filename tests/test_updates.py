@@ -164,7 +164,7 @@ def test_activity_groups_by_week_then_month(signed_in, api, pinned, capsys):
     assert "stationhouse update show u-1" in text
     assert "This week" in text and "October\n  Oct 20  ¶ Cy Tester posted  Do probes leak the system card?  in Discussions" in text
     assert "✓ Ben Tester completed  Put error bars on the Berg baseline" in text
-    assert text.endswith("Only some: --updates --tasks --posts --milestones · Older: --all · --json")
+    assert text.endswith("Only some: --updates --tasks --posts --milestones --hf-github · Older: --all · --json")
 
 
 def test_activity_flags_become_the_query(signed_in, api, pinned, capsys):

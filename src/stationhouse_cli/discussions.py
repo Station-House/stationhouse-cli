@@ -90,6 +90,9 @@ def render_list(data: dict, limit: int | None = SHOWN, out=print) -> None:
         hints.append(f"… {more} more: stationhouse discussions {scope} --all")
     if data.get("archivedCount") and not data.get("archived"):
         hints.append(f"{data['archivedCount']} archived: stationhouse discussions {scope} --all")
+    if data.get("linked"):
+        n = len(data["linked"])
+        hints.append(f"{n} from Hugging Face & GitHub: stationhouse discussions {scope} --hf-github")
     if hints:
         out("  " + " · ".join(hints))
     if not data.get("canPost") and data.get("writeHint"):

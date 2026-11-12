@@ -92,6 +92,18 @@ Leads also have `task new`, `task open`, `task proposals`, `task approve <n> [--
 have `assign <n> <who>`, `unassign <n> <who>`, `task edit <n>`, `task milestone <n> <M|none>` and
 `task subtask <n> "<title>"`.
 
+A project's Hugging Face & GitHub repos: their pull requests and discussions show in its Activity and
+Discussions, and open there.
+
+```bash
+stationhouse sources llm-self-attribution                  # its repos, single threads and hidden ones
+stationhouse sources add llm-self-attribution <link>       # leads: a public repo, or one thread (remove takes the same)
+stationhouse sources hide llm-self-attribution gh#203      # leads: hide one from the project (show brings it back)
+stationhouse activity llm-self-attribution --hf-github     # pull requests opened, merged, closed; discussions started
+stationhouse discussions llm-self-attribution --hf-github  # Hugging Face discussions and GitHub issues, numbered
+stationhouse open 1                                        # opens one from the last list on Hugging Face or GitHub
+```
+
 A refusal is the platform's own message, then a hint from the CLI (where to join, who owns it, the
 states you can move it to). On a project still on the older catalog, these commands say it hasn't
 moved yet and the commands above work as they always have.

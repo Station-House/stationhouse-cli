@@ -69,6 +69,7 @@
     ],
     "offer": [],
     "offers": [],
+    "open": [],
     "post": [
       "hide",
       "lock",
@@ -81,6 +82,7 @@
     "prs": [],
     "release": [],
     "skills-install": [],
+    "sources": [],
     "task": [
       "approve",
       "claim",

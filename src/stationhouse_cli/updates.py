@@ -19,7 +19,7 @@ import textwrap
 import urllib.parse
 from datetime import datetime
 
-from . import config
+from . import config, sources
 from .client import ApiError, request
 
 # The CLI's words for a status, and the API's. "none" is no status.
@@ -180,7 +180,15 @@ def preview_title(text: str) -> str:
 
 # --- Activity (STA-296) ---------------------------------------------------------------------------
 
-FILTERS = ("updates", "tasks", "posts", "milestones")
+FILTERS = ("updates", "tasks", "posts", "milestones", "hf-github")
+# What a linked thread's event says (P-STA-25); the line ends with where it happened.
+LINKED_VERB = {
+    "pr_opened": "opened a pull request",
+    "pr_merged": "merged a pull request",
+    "pr_closed": "closed a pull request without merging",
+    "discussion_started": "started a discussion",
+    "issue_started": "opened an issue",
+}
 ALL = 600  # the most the platform answers with
 
 
@@ -222,15 +230,19 @@ def event_line(item: dict, posts_tab: str = "Discussions") -> str:
         return f"◆ Milestone reached  {page}"
     if kind == "milestone_started":
         return f"◆ Milestone started  {page}"
+    if kind == "linked":
+        verb = LINKED_VERB.get(item.get("event"), "")
+        return f"{item.get('actorName') or 'Someone'} {verb}  {item.get('title', '')} (#{item.get('num')})  {'github' if item.get('forge') == 'github' else 'hf'}"
     return page
 
 
 def render_activity(data: dict, only: str | None = None, now: datetime | None = None, out=print) -> None:
     items = data.get("items") or []
+    linked_only = only == "hf-github"
     if not items:
-        out("No updates yet." if only == "updates" else "Nothing has happened here yet.")
+        out("No updates yet." if only == "updates" else "No Hugging Face or GitHub activity yet." if linked_only else "Nothing has happened here yet.")
         return
-    out(f"{data.get('projectTitle') or data.get('projectId')} · Activity")
+    out(f"{data.get('projectTitle') or data.get('projectId')} · Activity" + (" · Hugging Face & GitHub" if linked_only else ""))
     group = None
     for item in items:
         label = group_label(item.get("at", ""), now)
@@ -239,7 +251,9 @@ def render_activity(data: dict, only: str | None = None, now: datetime | None = 
             out(label)
             group = label
         when = date(item.get("at", "")).ljust(6)
-        if item.get("kind") == "update":
+        if item.get("kind") == "linked":
+            out(f"  ↗ {when}  {event_line(item)}")
+        elif item.get("kind") == "update":
             u = item["update"]
             out(f"  {when}  UPDATE  {' '.join(p for p in [health(u), u.get('title', '')] if p)}")
             n = u.get("comments", 0)
@@ -249,4 +263,13 @@ def render_activity(data: dict, only: str | None = None, now: datetime | None = 
     if data.get("hasMore"):
         out("  …")
     out("")
-    out("Only some: --updates --tasks --posts --milestones · Older: --all · --json")
+    linked = [item for item in items if item.get("kind") == "linked"]
+    if linked:
+        seen = {}
+        for item in linked:
+            seen.setdefault(item.get("num"), {"num": item.get("num"), "url": item.get("url")})
+        sources.remember("activity", data.get("projectId") or "", list(seen.values()))
+    if linked_only:
+        out("stationhouse open <n> opens one on Hugging Face or GitHub.")
+    else:
+        out("Only some: --updates --tasks --posts --milestones --hf-github · Older: --all · --json")

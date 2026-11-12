@@ -15,7 +15,7 @@ from importlib import resources
 from pathlib import Path
 
 from . import (__version__, chat, config, design, discussions, email_switches, explore as explore_mod, following, gate, inbox, leads, pm,
-               projects, traces, train, updates, versioncheck, wizard, work)
+               projects, sources, traces, train, updates, versioncheck, wizard, work)
 from .auth import (AuthError, DeviceLoginUnavailable, WrongCodeError, current_credentials, device_login,
                    is_platform_page, login, login_with_email_code, normalize_email, request_email_code, sign_out)
 from .client import ApiError, NotFound, SignInRequired, UpgradeRequired, request, signed_in
@@ -304,6 +304,12 @@ def cmd_discussions(args):
         if action is not None and target is not None:
             raise ApiError(f"Unknown action {action!r}. Use one of: {', '.join(DISCUSSION_ACTIONS)}, or a scope to list.")
         scope = action or projects.chosen(args.project) or discussions.COMMUNITY
+        if getattr(args, "hf_github", False):
+            if args.category:
+                raise ApiError("--hf-github is its own list: leave out --category.")
+            data = discussions.fetch(scope)
+            _emit(args, {k: data.get(k) for k in ("scope", "title", "linked")}, lambda d: sources.render_discussions(d, discussions.day))
+            return
         data = discussions.in_category(discussions.fetch(scope, all_posts=args.all), args.category)
         _emit(args, data, lambda d: discussions.render_list(d, limit=None if args.all else discussions.SHOWN))
         return
@@ -1376,9 +1382,47 @@ def cmd_update_latest(args):
 
 def cmd_activity(args):
     project = _update_project(args)
-    only = next((f for f in updates.FILTERS if getattr(args, f, False)), None)
+    only = next((f for f in updates.FILTERS if getattr(args, f.replace("-", "_"), False)), None)
     data = updates.activity(project, only, args.all)
     _emit(args, data, lambda d: updates.render_activity(d, only))
+
+
+SOURCE_ACTIONS = ("add", "remove", "hide", "show")
+
+
+def cmd_sources(args):
+    """`sources [<project>]` lists a project's Hugging Face & GitHub repos; leads `add|remove <project> <link>`
+    and `hide|show <project> <thread>` (hf#44, gh#203, owner/name#44 or its link)."""
+    words = list(args.words)
+    action = words.pop(0) if words and words[0] in SOURCE_ACTIONS else None
+    if action is None:
+        if len(words) > 1:
+            raise ApiError(f"Unknown action {words[0]!r}. Use one of: {', '.join(SOURCE_ACTIONS)}, or a project to list.")
+        project = projects.resolve(words[0] if words else args.project)
+        _emit(args, sources.fetch(project), lambda d: sources.render(d, project))
+        return
+    what = "<link>" if action in ("add", "remove") else "<thread, e.g. hf#44>"
+    if len(words) == 1 and args.project:
+        words.insert(0, args.project)
+    if len(words) != 2:
+        raise ApiError(f"stationhouse sources {action} <project> {what}")
+    project, ref = projects.resolve(words[0]), words[1]
+    if action == "add":
+        _emit(args, sources.add(project, ref), sources.render_added)
+    elif action == "remove":
+        _emit(args, sources.remove(project, ref), lambda d: sources.render_removed(d, ref))
+    elif action == "hide":
+        _emit(args, sources.set_hidden(project, ref, True), lambda d: sources.render_hidden(d, project, ref))
+    else:
+        _emit(args, sources.set_hidden(project, ref, False), lambda d: sources.render_shown(d, project))
+
+
+def cmd_open(args):
+    """`open <n>`: a thread from the last Hugging Face & GitHub list, on Hugging Face or GitHub."""
+    item = sources.pick(args.n)
+    url = item["url"]
+    opened = not args.print and not args.json and sources.open_url(url)
+    _emit(args, {"url": url, "opened": opened}, lambda d: print(f"Opened {url} in your browser." if opened else url))
 
 
 def cmd_hooks_install(args):
@@ -1542,6 +1586,8 @@ def build_parser():
     ds.add_argument("--draft", action="store_true", help="with `new`: keep it as a Draft instead of publishing")
     ds.add_argument("--to", metavar="comment-id", help="with `reply`: answer this comment")
     ds.add_argument("--all", action="store_true", help="list every post, the archived ones too")
+    ds.add_argument("--hf-github", action="store_true",
+                    help="a project's Hugging Face discussions and GitHub issues instead; they open there (stationhouse open <n>)")
     an = add("announcements", cmd_announcements, "the announcements the team emailed everyone: list, show, comment")
     an.add_argument("action", nargs="?", choices=["list", "show", "comment"])
     an.add_argument("target", nargs="?", metavar="id|latest", help="with show or comment (default: latest)")
@@ -1686,8 +1732,16 @@ def build_parser():
     act.add_argument("project_id", nargs="?", metavar="project", help="the project (default: the one you work in)")
     only = act.add_mutually_exclusive_group()
     for f in updates.FILTERS:
-        only.add_argument(f"--{f}", action="store_true", help=f"only {f}")
+        only.add_argument(f"--{f}", action="store_true",
+                          help="only pull requests and discussions from its Hugging Face & GitHub repos" if f == "hf-github" else f"only {f}")
     act.add_argument("--all", action="store_true", help="everything, not just the latest 30")
+
+    src = project(add("sources", cmd_sources, "a project's Hugging Face & GitHub repos; leads: add, remove, hide, show"))
+    src.add_argument("words", nargs="*", metavar="[action] project [link|thread]",
+                     help="<project> to list; leads: add|remove <project> <link>, hide|show <project> hf#44")
+    op = add("open", cmd_open, "open a thread from the last `discussions|activity <project> --hf-github` list")
+    op.add_argument("n", help="its row number (discussions) or #number (activity)")
+    op.add_argument("--print", action="store_true", help="print the link instead of opening a browser")
 
     up = sub.add_parser("update", help="project updates: leads post them; followers get them by email and in their Inbox")
     usub = up.add_subparsers(dest="update_cmd", required=True)
