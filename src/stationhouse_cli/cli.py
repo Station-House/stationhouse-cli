@@ -1740,7 +1740,7 @@ def build_parser():
     a = add("assign", cmd_assign, "add an owner to a task (its owners and leads; catalog tasks: admins)", task=True)
     a.add_argument("handle", help="their Hugging Face username (project-management tasks: or member id; leads: or email)")
     u = add("unassign", cmd_unassign, "leads: take an owner off a task (yourself: same as release)", task=True)
-    u.add_argument("handle", help="their Hugging Face username or email")
+    u.add_argument("handle", help="their Hugging Face username or member id (leads: or email)")
 
     pp = project(add("propose", cmd_propose, "propose a task to the project's leads (--take: you'll take it)"))
     pp.add_argument("title", nargs="*")
