@@ -56,41 +56,81 @@ def summary(change: dict) -> dict:
             "changed": bool(change.get("changed"))}
 
 
+COMMUNITY = "community"
+
+
+def member_hears(mode: str) -> str:
+    """What a member who follows the project hears of it, by its board mode (STA-388).
+    full: posts, tasks and a lead's Project updates reach the Inbox and email; an admin's are emailed.
+    discussions: its new posts. off (no board): only an admin's Project updates, by email."""
+    if mode == "full":
+        return "Its posts and tasks reach your Inbox and email, and so do a lead's Project updates; an admin's are emailed."
+    if mode == "discussions":
+        return "Its new posts reach your Inbox, and your email unless it's off in Preferences."
+    return "Its Project updates are emailed to you."
+
+
 def render_change(command: str, change: dict, out=print) -> None:
-    """What join, leave, follow and unfollow say: the frame's copy, and "already" when nothing changed."""
+    """What join, leave, follow and unfollow say: the frame's copy, by the project's board mode
+    (`mode`: full, discussions or off; an older platform sends none, read as off), and "already"
+    when nothing changed. A Follower who hasn't joined hears only of Project updates (STA-388)."""
     title, pid = change.get("title") or change.get("projectId"), change.get("projectId")
     member, following, changed = change.get("member"), change.get("following"), change.get("changed")
+    mode = change.get("mode") or "off"
     if command == "join":
         if not changed:
             out(f"You're already a member of {title}.")
         elif following:
-            out(f"Joined {title}. You follow it too: its posts, tasks and updates reach your Inbox and email.")
+            out(f"Joined {title}. You follow it too. {member_hears(mode)}")
             out(f"  Stay a member but hear nothing: stationhouse unfollow {pid}")
         else:
-            out(f"Joined {title}. You'd unfollowed it, so only mentions and tasks that are yours reach you.")
+            if mode == "full":
+                out(f"Joined {title}. You'd unfollowed it, so its new posts and tasks don't reach you. "
+                    "Mentions of you, and pages you follow (your tasks among them), still do.")
+            elif mode == "discussions":
+                out(f"Joined {title}. You'd unfollowed it, so its new posts don't reach you. Mentions of you, and pages you follow, still do.")
+            else:
+                out(f"Joined {title}. You'd unfollowed it, so its Project updates aren't emailed to you.")
             out(f"  Hear about it: stationhouse follow {pid}")
     elif command == "leave":
+        tasks = " Tasks you're on stay yours." if mode == "full" else ""
         if not changed:
             out(f"You're not a member of {title}.")
+        elif following and mode == "discussions":
+            # Without joining, a project with Discussions only brings nothing: its posts are its members'.
+            out(f"Left {title}.{tasks} You still follow it, which without joining brings no news here today.")
+            out(f"  Unfollow it: stationhouse unfollow {pid}")
         elif following:
-            out(f"Left {title}. Tasks you're on stay yours. You still follow it.")
+            out(f"Left {title}.{tasks} You still follow it, so its Project updates still reach you.")
             out(f"  Stop hearing about it: stationhouse unfollow {pid}")
         else:
-            out(f"Left {title}. Tasks you're on stay yours.")
+            out(f"Left {title}.{tasks}")
     elif command == "follow":
         if not changed:
             out(f"You already follow {title}.")
+        elif pid == COMMUNITY:
+            # Community posts aren't emailed one by one: the Daily digest lists the new ones (review-459-b).
+            out(f"Following {title}. New posts reach your Inbox, and your Daily digest unless it's off in Preferences.")
         elif member:
-            out(f"Following {title}. Its posts, tasks and updates reach your Inbox and email.")
+            out(f"Following {title}. {member_hears(mode)}")
+        elif mode == "full":
+            out(f"Following {title} without joining, so you get its Project updates: a lead's in your Inbox and by email, an admin's by email.")
+            out(f"  For its task and discussion news too: stationhouse join {pid}")
+        elif mode == "discussions":
+            out(f"Following {title} without joining, which brings you no news here today.")
+            out(f"  To hear of its new posts: stationhouse join {pid}")
         else:
-            out(f"Following {title}. Its updates reach your Inbox and email. You haven't joined.")
-            out(f"  To post or take tasks: stationhouse join {pid}")
+            out(f"Following {title} without joining, so its Project updates are emailed to you.")
     elif command == "unfollow":
         if not changed:
             out(f"You don't follow {title}.")
+        elif member and mode == "off":
+            out(f"Stopped following {title}. You're still a member, but its Project updates are no longer emailed to you.")
+            out(f"  Follow again: stationhouse follow {pid}")
         elif member:
             out(f"Stopped following {title}. You're still a member.")
-            out("  You'll still hear when someone mentions you or about tasks that are yours.")
+            yours = ", your tasks among them" if mode == "full" else ""
+            out(f"  You'll still hear when someone mentions you, and about pages you follow{yours}.")
             out(f"  Follow again: stationhouse follow {pid}")
         else:
             out(f"Stopped following {title}.")
@@ -153,7 +193,7 @@ def render_page_change(page_id: str, follow: bool, change: dict, out=print) -> N
         why = PAGE_REASONS.get(change.get("reason") or "")
         out(f"You already follow page {page_id}" + (f" ({why})." if why else "."))
     elif follow:
-        out(f"Following page {page_id}. New replies reach your Inbox and email.")
+        out(f"Following page {page_id}. New replies reach your Inbox, and on a project your email too.")
         out(f"  Unfollow: stationhouse unfollow --page {page_id}")
     elif not change.get("changed"):
         out(f"You don't follow page {page_id}.")

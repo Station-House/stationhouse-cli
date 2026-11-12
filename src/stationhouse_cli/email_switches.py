@@ -79,7 +79,7 @@ def render(data: dict, out=print) -> None:
     for kind in KINDS:
         state = "on" if data.get(kind) else "off"
         out(f"  {NAMES[kind]:<{NAME_WIDTH}}{state:<{STATE_WIDTH}}{covers(kind, data)}")
-    out("  Stop all email from one project: stationhouse unfollow <project>")
+    out("  Stop one project's news by email: stationhouse unfollow <project> (mentions, and pages you follow, still reach you)")
     out("  Change one: stationhouse email set digest|activity|announcements on|off")
 
 
@@ -99,7 +99,7 @@ def render_set(kind: str, data: dict, out=print) -> None:
     elif kind == "activity" and on:
         out(f"Project activity on. Updates and Inbox news from the projects you follow reach {address}.")
     elif kind == "activity":
-        out("Project activity off. Updates and Inbox news stay in your Inbox; none of it is emailed.")
+        out("Project activity off. Inbox news stays in your Inbox, and Project updates on each project's Updates tab; none of it is emailed.")
         out(f"  Mentions aren't emailed either. Undo: {undo}")
     elif on:
         out(f"Announcements on. Community news reaches {address}.")

@@ -197,8 +197,20 @@ def render_follow(data: dict, out=print) -> None:
     if data.get("following") and data.get("scope") == COMMUNITY:
         # Community posts aren't emailed one by one: the Daily digest lists the new ones (review-459-b).
         out(f"Following {name}. New posts reach your Inbox, and your Daily digest unless it's off in Preferences.")
+    elif data.get("following") and data.get("mode") == "discussions":
+        # Discussions only: no Project updates, so following without joining brings nothing (STA-388).
+        out(f"Following {name}. Its new posts reach its members' Inbox, and their email unless it's off in Preferences.")
+        out(f"Following without joining brings no news here today. To hear of its posts: stationhouse join {data.get('scope')}")
+    elif data.get("following") and data.get("mode") == "full":
+        # A Follower who hasn't joined hears only of its Project updates (STA-388); its members, of its posts too.
+        # A lead's update reaches the Inbox and email; an admin's is an email only.
+        out(f"Following {name}. Its Project updates reach you: a lead's in your Inbox and email, an admin's in your email, unless it's off in Preferences.")
+        out(f"Members also hear of its new posts and tasks. If you haven't joined: stationhouse join {data.get('scope')}")
     elif data.get("following"):
-        out(f"Following {name}. New posts reach your Inbox, and your email unless it's off in Preferences.")
+        # No board ("off", or an older server that sends no mode): only an admin's Project updates,
+        # by email, to its members and Followers alike, and no tasks or posts. (A member who follows
+        # also gets Poll closed in the Inbox, which this line leaves out.)
+        out(f"Following {name}. Its Project updates reach your email, unless it's off in Preferences.")
     else:
         out(f"Stopped following {name}. Posts you wrote or replied to still reach your Inbox.")
 

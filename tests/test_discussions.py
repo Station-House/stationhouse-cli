@@ -107,9 +107,26 @@ def test_reply_and_follow(signed_in, api, capsys):
     assert api.calls[0]["body"] == {"body": "I'm in.", "parentId": None}
     _, out, _ = run(capsys, "discussions", "follow", "community")
     assert "Following Community discussions. New posts reach your Inbox, and your Daily digest unless it's off in Preferences." in out
-    api.routes[("PUT", "/api/v1/discussions/marin/following")] = (200, {"scope": "marin", "title": "Marin", "following": True})
+    # A full board's: its Project updates reach a Follower; its posts and tasks, its members (STA-388).
+    api.routes[("PUT", "/api/v1/discussions/llm-self-attribution/following")] = (
+        200, {"scope": "llm-self-attribution", "title": "LLM Self-Attribution", "following": True, "mode": "full"})
+    _, out, _ = run(capsys, "discussions", "follow", "llm-self-attribution")
+    assert out.endswith("Following LLM Self-Attribution discussions. Its Project updates reach you: a lead's in your Inbox and email, "
+                        "an admin's in your email, unless it's off in Preferences.\n"
+                        "Members also hear of its new posts and tasks. If you haven't joined: stationhouse join llm-self-attribution\n")
+    # Discussions only (Marin): no Project updates, so following without joining brings nothing; joining brings its posts.
+    api.routes[("PUT", "/api/v1/discussions/marin/following")] = (200, {"scope": "marin", "title": "Marin", "following": True, "mode": "discussions"})
     _, out, _ = run(capsys, "discussions", "follow", "marin")
-    assert "New posts reach your Inbox, and your email unless it's off in Preferences." in out
+    assert out.endswith("Following Marin discussions. Its new posts reach its members' Inbox, and their email unless it's off in Preferences.\n"
+                        "Following without joining brings no news here today. To hear of its posts: stationhouse join marin\n")
+    assert "Project update" not in out and "task" not in out
+    # No board (off: Conspiracy Bench, CSA, Admin-made projects): only an admin's Project updates, by email,
+    # whether or not they join; no tasks or posts. (A member who follows also gets Poll closed in the Inbox.)
+    api.routes[("PUT", "/api/v1/discussions/conspiracybench/following")] = (
+        200, {"scope": "conspiracybench", "title": "Conspiracy Bench", "following": True, "mode": "off"})
+    _, out, _ = run(capsys, "discussions", "follow", "conspiracybench")
+    assert out.endswith("Following Conspiracy Bench discussions. Its Project updates reach your email, unless it's off in Preferences.\n")
+    assert not any(word in out for word in ("task", "post", "join"))
 
 
 def test_json_prints_what_the_platform_answered(signed_in, api, capsys):

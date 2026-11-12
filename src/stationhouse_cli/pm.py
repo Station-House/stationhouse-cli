@@ -544,7 +544,7 @@ def render_move(data: dict, typed: str) -> None:
             told = f"it needs {people(waiting)}'s approval, and they were told"
         else:
             left = max(reviews["required"] - reviews.get("approvals", 0), 1)
-            told = f"it needs {approvals(left)}; {t['projectId']}'s followers were told"
+            told = f"it needs {approvals(left)}; {t['projectId']}'s members who follow it were told"
         print(f"◕ #{t['number']} is In review. {told[0].upper()}{told[1:]}.")
         return
     print(f"{_named(t)}: {STATE_LABELS.get(before, before)} → {to}.")

@@ -92,7 +92,7 @@ def test_move_to_review_says_what_it_needs(marin, capsys):
     moved["task"] = {**moved["task"], "state": "in_review", "reviewHistory": {**moved["task"]["reviewHistory"], "waitingOn": []}}
     marin.routes[("PUT", f"{BASE}/tasks/3/state")] = (200, {**moved, "from": "doing"})
     _, out, _ = run(capsys, "move", "3", "review")
-    assert out == "◕ #3 is In review. It needs 1 approval; marin-neuron-atlas's followers were told.\n"
+    assert out == "◕ #3 is In review. It needs 1 approval; marin-neuron-atlas's members who follow it were told.\n"
 
 
 # ---------------------------------------------------------------- templates (STA-379, STA-380)

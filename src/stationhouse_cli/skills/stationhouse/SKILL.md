@@ -27,15 +27,15 @@ Add `--json` for output you can parse.
 ```
 stationhouse projects                       the projects they can see (and which one they picked)
 stationhouse project [use <id> | clear]     show / pick / forget the project they work in
-stationhouse inbox [--all] [--kind K]       their Inbox: the projects they follow, Hugging Face and GitHub replies to them
+stationhouse inbox [--all] [--kind K]       their Inbox: news from their projects, Hugging Face and GitHub replies to them
 stationhouse inbox open|read <n>            open one in the browser and mark it read / just mark it read (`done <n>` too)
 stationhouse inbox read --all               mark every unread one read; `inbox unread --last` undoes it
 stationhouse join|leave [project]           join a project (which follows it too) / leave it (still following; a lead can't)
-stationhouse follow|unfollow [project]      hear about a project or stop; a member who unfollows stays one
+stationhouse follow|unfollow [project]      follow a project or stop (without joining: only its Project updates); a member who unfollows stays one
 stationhouse follow|unfollow <task>         follow or unfollow a project-management task: 12 or <project>#12
 stationhouse follow|unfollow --page <id>    follow or unfollow one page (a post, task or update) by hand
 stationhouse following                      the projects they joined or follow, and the pages they follow
-stationhouse email [set <kind> <on|off>]    their email switches: digest, activity, announcements (all of one project: unfollow it)
+stationhouse email [set <kind> <on|off>]    their email switches: digest, activity, announcements (one project's news: unfollow it)
 stationhouse find-work [about words]        pick an open task for the contributor, with the reasons
 stationhouse explore "question"             which tasks a question is about, and who is on them (a lookup; no model)
 stationhouse task claim <task-id>           put the contributor on a task or subtask; it shows on their dashboard
@@ -49,7 +49,7 @@ stationhouse mine                           the contributor's own claims
 stationhouse prs [--project P]              open PRs waiting for a review (not the contributor's own), unreviewed first
 stationhouse discussions community         the community's discussions (or a project id's); show <id> to read one
 stationhouse discussions new community --category questions --title "…" --body-file f.md   start one
-stationhouse discussions reply <id> --body "…"   reply; follow|unfollow <scope> for new posts in the Inbox
+stationhouse discussions reply <id> --body "…"   reply; follow|unfollow <scope>: Community's new posts; on a project, its Project updates by email (a lead's, on a full board, reach the Inbox too); a project's posts reach only those who join it
 stationhouse announcements [show latest]    what the team emailed everyone; comment <id|latest> --body "…"
 stationhouse assign <task-id> <hf-handle>   admins only
 stationhouse task proposals|approve|reject  admins only: review proposed subtasks

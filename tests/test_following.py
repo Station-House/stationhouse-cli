@@ -8,9 +8,11 @@ MARIN = "marin-neuron-atlas"
 CSA = "llm-self-attribution"
 
 
-def change(project=MARIN, title="Marin Neuron Atlas", member=True, lead=False, following=True, reason="joined", changed=True):
+def change(project=MARIN, title="Marin Neuron Atlas", member=True, lead=False, following=True, reason="joined", changed=True,
+           mode="discussions"):
+    # Marin has Discussions only in prod; Conspiracy Bench and CSA are off (no board).
     return {"projectId": project, "title": title, "member": member, "lead": lead, "following": following,
-            "reason": reason, "changed": changed}
+            "reason": reason, "changed": changed, "mode": mode}
 
 
 def run(capsys, *argv):
@@ -23,7 +25,7 @@ def test_join_follows_too_and_offers_unfollow(signed_in, api, capsys):
     api.routes[("PUT", f"/api/v1/projects/{MARIN}/membership")] = (200, change())
     code, out, _ = run(capsys, "join", MARIN)
     assert code == 0
-    assert out == ("Joined Marin Neuron Atlas. You follow it too: its posts, tasks and updates reach your Inbox and email.\n"
+    assert out == ("Joined Marin Neuron Atlas. You follow it too. Its new posts reach your Inbox, and your email unless it's off in Preferences.\n"
                    f"  Stay a member but hear nothing: stationhouse unfollow {MARIN}\n")
     assert api.calls[-1]["method"] == "PUT" and api.calls[-1]["path"] == f"/api/v1/projects/{MARIN}/membership"
 
@@ -34,29 +36,92 @@ def test_join_twice_changes_nothing_and_says_so(signed_in, api, capsys):
     assert out == "You're already a member of Marin Neuron Atlas.\n"
 
 
-def test_follow_without_joining_points_at_join(signed_in, api, capsys):
+def test_follow_without_joining_says_what_it_brings_by_mode(signed_in, api, capsys):
+    # Off (no board): only an admin's Project updates, by email. No Inbox, posts or tasks to promise.
     api.routes[("PUT", "/api/v1/projects/conspiracybench/following")] = (
-        200, change("conspiracybench", "Conspiracy Bench", member=False, reason="followed"))
+        200, change("conspiracybench", "Conspiracy Bench", member=False, reason="followed", mode="off"))
     # No project named: the one picked (conftest picks conspiracybench).
     _, out, _ = run(capsys, "follow")
-    assert out == ("Following Conspiracy Bench. Its updates reach your Inbox and email. You haven't joined.\n"
-                   "  To post or take tasks: stationhouse join conspiracybench\n")
+    assert out == "Following Conspiracy Bench without joining, so its Project updates are emailed to you.\n"
+    # Discussions only (Marin): no Project updates, and its posts are its members', so nothing.
+    api.routes[("PUT", f"/api/v1/projects/{MARIN}/following")] = (200, change(member=False, reason="followed"))
+    _, out, _ = run(capsys, "follow", MARIN)
+    assert out == ("Following Marin Neuron Atlas without joining, which brings you no news here today.\n"
+                   f"  To hear of its new posts: stationhouse join {MARIN}\n")
+    # A full board: a lead's updates reach the Inbox and email, an admin's are emailed.
+    api.routes[("PUT", f"/api/v1/projects/{CSA}/following")] = (
+        200, change(CSA, "Consciousness Self-Attribution", member=False, reason="followed", mode="full"))
+    _, out, _ = run(capsys, "follow", CSA)
+    assert out == ("Following Consciousness Self-Attribution without joining, so you get its Project updates: "
+                   "a lead's in your Inbox and by email, an admin's by email.\n"
+                   f"  For its task and discussion news too: stationhouse join {CSA}\n")
+    # An older platform that sends no mode: read as off, which promises the least.
+    api.routes[("PUT", "/api/v1/projects/conspiracybench/following")] = (
+        200, {k: v for k, v in change("conspiracybench", "Conspiracy Bench", member=False, reason="followed").items() if k != "mode"})
+    _, out, _ = run(capsys, "follow", "conspiracybench")
+    assert out == "Following Conspiracy Bench without joining, so its Project updates are emailed to you.\n"
+
+
+def test_follow_as_a_member_says_what_it_brings_by_mode(signed_in, api, capsys):
+    cases = [
+        ("off", "Its Project updates are emailed to you."),
+        ("discussions", "Its new posts reach your Inbox, and your email unless it's off in Preferences."),
+        ("full", "Its posts and tasks reach your Inbox and email, and so do a lead's Project updates; an admin's are emailed."),
+    ]
+    for mode, line in cases:
+        api.routes[("PUT", f"/api/v1/projects/{MARIN}/following")] = (200, change(mode=mode))
+        _, out, _ = run(capsys, "follow", MARIN)
+        assert out == f"Following Marin Neuron Atlas. {line}\n", mode
+        api.routes[("PUT", f"/api/v1/projects/{MARIN}/membership")] = (200, change(mode=mode))
+        _, out, _ = run(capsys, "join", MARIN)
+        assert out.startswith(f"Joined Marin Neuron Atlas. You follow it too. {line}\n"), mode
+    # Off a full board, no line promises tasks; off, none promises posts, and none promises a
+    # non-member the Inbox (a member who follows gets Poll closed there, which no line needs to say).
+    for mode in ("off", "discussions"):
+        for command in ("join", "follow", "leave", "unfollow"):
+            for member, following in ((True, True), (True, False), (False, True), (False, False)):
+                method = "DELETE" if command in ("leave", "unfollow") else "PUT"
+                suffix = "membership" if command in ("join", "leave") else "following"
+                api.routes[(method, f"/api/v1/projects/{MARIN}/{suffix}")] = (200, change(mode=mode, member=member, following=following))
+                _, out, _ = run(capsys, command, MARIN)
+                assert "task" not in out.lower(), (mode, command, out)
+                if mode == "off":
+                    assert "post" not in out.lower(), (command, out)
+                    if not member:
+                        assert "Inbox" not in out, (command, out)
+
+
+def test_follow_the_community(signed_in, api, capsys):
+    api.routes[("PUT", "/api/v1/projects/community/following")] = (
+        200, change("community", "Community", member=False, reason="followed"))
+    _, out, _ = run(capsys, "follow", "community")
+    assert out == "Following Community. New posts reach your Inbox, and your Daily digest unless it's off in Preferences.\n"
 
 
 def test_unfollow_keeps_a_member_one_and_json_has_the_frames_fields(signed_in, api, capsys):
     api.routes[("DELETE", f"/api/v1/projects/{MARIN}/following")] = (200, change(following=False, reason=None))
     _, out, _ = run(capsys, "unfollow", MARIN)
     assert out == ("Stopped following Marin Neuron Atlas. You're still a member.\n"
-                   "  You'll still hear when someone mentions you or about tasks that are yours.\n"
+                   "  You'll still hear when someone mentions you, and about pages you follow.\n"
                    f"  Follow again: stationhouse follow {MARIN}\n")
     _, out, _ = run(capsys, "unfollow", MARIN, "--json")
     assert json.loads(out) == {"project": MARIN, "member": True, "following": False, "reason": None, "changed": True}
+    api.routes[("DELETE", f"/api/v1/projects/{MARIN}/following")] = (200, change(following=False, reason=None, mode="full"))
+    _, out, _ = run(capsys, "unfollow", MARIN)
+    assert "  You'll still hear when someone mentions you, and about pages you follow, your tasks among them.\n" in out
+    api.routes[("DELETE", f"/api/v1/projects/{MARIN}/following")] = (200, change(following=False, reason=None, mode="off"))
+    _, out, _ = run(capsys, "unfollow", MARIN)
+    assert out.startswith("Stopped following Marin Neuron Atlas. You're still a member, but its Project updates are no longer emailed to you.\n")
 
 
 def test_leave_keeps_the_follow(signed_in, api, capsys):
     api.routes[("DELETE", f"/api/v1/projects/{MARIN}/membership")] = (200, change(member=False, reason="followed"))
     _, out, _ = run(capsys, "leave", MARIN)
-    assert out == ("Left Marin Neuron Atlas. Tasks you're on stay yours. You still follow it.\n"
+    assert out == ("Left Marin Neuron Atlas. You still follow it, which without joining brings no news here today.\n"
+                   f"  Unfollow it: stationhouse unfollow {MARIN}\n")
+    api.routes[("DELETE", f"/api/v1/projects/{MARIN}/membership")] = (200, change(member=False, reason="followed", mode="full"))
+    _, out, _ = run(capsys, "leave", MARIN)
+    assert out == ("Left Marin Neuron Atlas. Tasks you're on stay yours. You still follow it, so its Project updates still reach you.\n"
                    f"  Stop hearing about it: stationhouse unfollow {MARIN}\n")
 
 
@@ -88,7 +153,7 @@ def test_follow_a_page_by_hand_and_again(signed_in, api, capsys):
     api.routes[("GET", path)] = (200, {"following": False, "reason": None, "unfollowed": False, "projectFollowing": True, "others": 2})
     api.routes[("PUT", path)] = (200, {"following": True, "reason": "followed", "unfollowed": False, "projectFollowing": True, "others": 2})
     _, out, _ = run(capsys, "follow", "--page", "p-42")
-    assert out == "Following page p-42. New replies reach your Inbox and email.\n  Unfollow: stationhouse unfollow --page p-42\n"
+    assert out == "Following page p-42. New replies reach your Inbox, and on a project your email too.\n  Unfollow: stationhouse unfollow --page p-42\n"
     assert [c["method"] for c in api.calls] == ["GET", "PUT"]
     api.routes[("GET", path)] = (200, {"following": True, "reason": "mentioned", "unfollowed": False, "projectFollowing": True, "others": 2})
     api.calls.clear()

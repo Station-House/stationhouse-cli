@@ -31,7 +31,7 @@ def test_email_lists_the_three_switches_in_the_frames_words(signed_in, api, caps
         "  Daily digest      on    9am Europe/Berlin · new tasks and reminders from 2 projects you've joined\n"
         "  Project activity  on    updates and Inbox news from the 3 projects you follow\n"
         "  Announcements     off   community news from the Stationhouse team\n"
-        "  Stop all email from one project: stationhouse unfollow <project>\n"
+        "  Stop one project's news by email: stationhouse unfollow <project> (mentions, and pages you follow, still reach you)\n"
         "  Change one: stationhouse email set digest|activity|announcements on|off\n"
     )
 
@@ -65,7 +65,7 @@ def test_set_announcements_on_names_the_address(signed_in, api, capsys):
 def test_set_activity_off_says_mentions_arent_emailed_and_how_to_undo(signed_in, api, capsys):
     api.routes[("PATCH", PATH)] = (200, email(activity=False, changed=True))
     _, out, _ = run(capsys, "email", "set", "activity", "off")
-    assert out == ("Project activity off. Updates and Inbox news stay in your Inbox; none of it is emailed.\n"
+    assert out == ("Project activity off. Inbox news stays in your Inbox, and Project updates on each project's Updates tab; none of it is emailed.\n"
                    "  Mentions aren't emailed either. Undo: stationhouse email set activity on\n")
     assert api.calls[-1]["body"] == {"activity": False}
 

@@ -48,7 +48,7 @@ stationhouse inbox read 2     # mark one read (`read --all` for all; `done 2` wo
 stationhouse inbox unread --last  # undo the last Mark read
 stationhouse join <id>        # join a project: you work on it, and you follow it too
 stationhouse unfollow <id>    # stop hearing about it; you stay a member (mentions and your tasks still reach you)
-stationhouse follow <id>      # hear about a project without joining; `leave <id>` keeps the follow
+stationhouse follow <id>      # follow a project without joining (only its Project updates); `leave <id>` keeps the follow
 stationhouse following        # the projects you joined or follow, and the pages you follow
 stationhouse email            # the emails you get: Daily digest, Project activity, Announcements
 stationhouse email set activity off   # switch one off (or on): digest, activity or announcements

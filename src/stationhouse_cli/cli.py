@@ -1680,7 +1680,7 @@ def build_parser():
     add("context", cmd_context, "a task's neighbourhood: people, PRs and their latest comments", task=True)
     add("mine", cmd_mine, "every task you're on, in every project").add_argument(
         "--all", action="store_true", help="Completed ones too")
-    ib = project(add("inbox", cmd_inbox, "your Inbox: the projects you follow, and Hugging Face and GitHub replies to you",
+    ib = project(add("inbox", cmd_inbox, "your Inbox: news from your projects, and Hugging Face and GitHub replies to you",
                      aliases=["follow-ups", "todo"]))
     ib.add_argument("action", nargs="?", choices=["list", "open", "read", "unread", "done"], default="list",
                     help="open <n> opens one and marks it read; read <n> (or done <n>) marks it read; unread --last undoes the last")
@@ -1714,7 +1714,7 @@ def build_parser():
     pr.add_argument("--limit", type=int, default=10)
     for name, help in (("join", "join a project: you work on it, and you follow it too"),
                        ("leave", "leave a project; tasks you're on stay yours and you still follow it"),
-                       ("follow", "hear about a project without joining it, a task by its number, or a page with --page <id>"),
+                       ("follow", "follow a project without joining it (only its Project updates), a task by its number, or a page with --page <id>"),
                        ("unfollow", "stop hearing about a project (a member stays one), a task by its number, or a page with --page <id>")):
         jf = add(name, cmd_join_follow, help)
         follows = name in ("follow", "unfollow")

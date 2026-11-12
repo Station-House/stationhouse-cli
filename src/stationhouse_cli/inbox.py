@@ -118,8 +118,8 @@ def render(data: dict, out=print, everything: bool = False, project_title: str |
 
     if not items:
         out(" · ".join(head) if filtered or failed(data) else
-            "Your Inbox is empty. Join or follow a project and what happens there shows up here. Link Hugging Face "
-            "or GitHub on your Profile and replies to you show up too.")
+            "Your Inbox is empty. Join a project and its news shows up here: its new posts, tasks and closed polls, "
+            "whichever it has. Link Hugging Face or GitHub on your Profile and replies to you show up too.")
         if failed(data):
             out("  Try again in a minute: stationhouse inbox")
         return
