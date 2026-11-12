@@ -1795,7 +1795,7 @@ def build_parser():
     rv.add_argument("-m", "--message", help="with --approve: a note for its owners")
     add("start", cmd_task_start, "start your own copy of a template: it's yours, Claimed, with the template's brief",
         task=True, under=tsub)
-    add("drop", cmd_task_drop, "drop your copy of a template (kept, archived, once someone commented or reviewed it)",
+    add("drop", cmd_task_drop, "drop a copy of a template you own (deleted if you started it and nobody else touched it; archived otherwise)",
         task=True, under=tsub)
     add("archive", cmd_task_archive, "leads: archive a template, so it takes no new copies", task=True, under=tsub)
     add("unarchive", cmd_task_unarchive, "leads: unarchive a template", task=True, under=tsub)

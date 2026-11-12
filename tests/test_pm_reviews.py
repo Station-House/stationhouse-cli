@@ -124,7 +124,14 @@ def test_task_start_on_a_task_that_isnt_a_template_points_at_claim(marin, capsys
 def test_task_drop_says_whether_the_copy_is_gone(marin, capsys):
     marin.routes[("POST", f"{BASE}/tasks/15/drop")] = (200, fixture("drop"))
     _, out, _ = run(capsys, "task", "drop", "15")
-    assert out == ("Dropped your copy #15. Nobody had said anything on it, so it's gone.\n"
+    assert out == ("Dropped your copy #15. You started it and nobody else had touched it, so it's gone.\n"
+                   "Start another: stationhouse task start 14\n")
+
+
+def test_task_drop_says_an_archived_copy_stays_readable(marin, capsys):
+    marin.routes[("POST", f"{BASE}/tasks/15/drop")] = (200, {**fixture("drop"), "outcome": "archived"})
+    _, out, _ = run(capsys, "task", "drop", "15")
+    assert out == ("Dropped copy #15. It's kept, archived, and stays readable; it doesn't count as started.\n"
                    "Start another: stationhouse task start 14\n")
 
 

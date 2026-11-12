@@ -684,9 +684,9 @@ def start_hint(message: str, task: dict) -> str | None:
 def render_dropped(data: dict, typed: str) -> None:
     template = data["template"]
     if data["outcome"] == "deleted":
-        print(f"Dropped your copy #{split_ref(typed)[1]}. Nobody had said anything on it, so it's gone.")
+        print(f"Dropped your copy #{split_ref(typed)[1]}. You started it and nobody else had touched it, so it's gone.")
     else:
-        print(f"Dropped your copy #{split_ref(typed)[1]}. It's kept, archived, for its comments and reviews; it doesn't count as started.")
+        print(f"Dropped copy #{split_ref(typed)[1]}. It's kept, archived, and stays readable; it doesn't count as started.")
     print(dim(f"Start another: stationhouse task start {template['number']}"))
 
 
