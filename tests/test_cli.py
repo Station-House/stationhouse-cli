@@ -150,6 +150,7 @@ VISITOR_READS = [
     "/api/v1/projects/p/tasks/t/context", "/api/v1/projects/p/tasks/t/people", "/api/v1/projects/p/unclaimed",
     "/api/v1/projects/p/prs", "/api/v1/projects/p/neurons/claims", "/api/v1/projects/p/neurons/L40-N1/claim",
     "/api/v1/tasks", "/api/v1/tasks/unclaimed", "/api/v1/tasks/t/context", "/api/v1/tasks/t/people", "/api/v1/prs",
+    "/api/v1/research",
 ]
 MEMBER_CALLS = [
     ("GET", "/api/v1/me"), ("GET", "/api/v1/me/claims"), ("GET", "/api/v1/proposals"), ("GET", "/api/v1/design/sessions"),

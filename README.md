@@ -56,6 +56,7 @@ stationhouse unfollow 12     # a task, by its number (or <project>#12); `follow 
 stationhouse unfollow --page <id>  # one page (a post, task or update); `follow --page <id>` again
 stationhouse mine
 stationhouse prs              # open PRs waiting for a review (not yours), unreviewed first
+stationhouse research         # Our Research: the week's research write-ups, by day (--project <id>); no sign-in needed
 ```
 
 `sth` is a short alias. Add `--json` to any command for machine-readable output.

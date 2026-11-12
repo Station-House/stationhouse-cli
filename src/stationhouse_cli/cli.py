@@ -15,7 +15,7 @@ from importlib import resources
 from pathlib import Path
 
 from . import (__version__, chat, config, design, discussions, email_switches, explore as explore_mod, following, gate, inbox, leads, pm,
-               projects, sources, traces, train, updates, versioncheck, wizard, work)
+               projects, research, sources, traces, train, updates, versioncheck, wizard, work)
 from .auth import (AuthError, DeviceLoginUnavailable, WrongCodeError, current_credentials, device_login,
                    is_platform_page, login, login_with_email_code, normalize_email, request_email_code, sign_out)
 from .client import ApiError, NotFound, SignInRequired, UpgradeRequired, request, signed_in
@@ -363,6 +363,12 @@ def cmd_prs(args):
             if p.get("url"):
                 print(f"    {p['url']}")
     _emit(args, out, human)
+
+
+def cmd_research(args):
+    """Our Research (STA-354): the week's research write-ups, newest first. No sign-in needed where the
+    server has public reading on; where it's off, a signed-out caller is asked to sign in."""
+    _emit(args, research.fetch(args.project), research.render)
 
 
 def cmd_mine(args):
@@ -1595,6 +1601,8 @@ def build_parser():
     an.add_argument("--body-file", help="with `comment`: read the text from a file (`-` for stdin)")
     an.add_argument("--to", metavar="comment-id", help="with `comment`: reply to this comment")
     an.add_argument("--all", action="store_true", help="list every announcement")
+    rs = add("research", cmd_research, "Our Research: the week's research write-ups (discussions, PRs, experiments), newest first")
+    rs.add_argument("--project", help="only this project (its id or slug)")
     pr = project(add("prs", cmd_prs, "open PRs waiting for a review (not your own), unreviewed first"))
     pr.add_argument("--limit", type=int, default=10)
     for name, help in (("join", "join a project: you work on it, and you follow it too"),
@@ -1861,7 +1869,7 @@ def _sign_in_to(args) -> str:
         cmd_task_create: "propose a subtask", cmd_task_request: "request a task",
         cmd_task_proposals: "review proposals", cmd_task_approve: "approve a proposal", cmd_task_reject: "reject a proposal",
         cmd_chat: "ask the assistant", cmd_explore: "ask the assistant", cmd_find_work: "find work for you",
-        cmd_following: "see what you follow",
+        cmd_following: "see what you follow", cmd_research: "read Our Research",
         # Project management from the CLI (#452): every write signs in first.
         cmd_move: f"move {task}", cmd_comment: f"comment on {task}", cmd_unassign: f"change who's on {task}",
         cmd_propose: "propose a task", cmd_task_new: "write a task", cmd_task_decline: f"decline {task}",

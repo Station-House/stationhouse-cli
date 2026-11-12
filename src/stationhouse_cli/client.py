@@ -55,6 +55,7 @@ VISITOR_READS = re.compile(
     rf"|neurons/claims|neurons/{_SEG}/claim))?)?"
     rf"|tasks(?:/unclaimed|/{_SEG}/(?:context|people))?"
     r"|prs"
+    r"|research"
     r")/?$"
 )
 

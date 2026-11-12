@@ -60,6 +60,7 @@ Projects come first and tasks live under their project. A task asked for under t
 | `GET /projects/{p}/tasks` | | `{ project, you, tasks: [{ taskId, title, parentTaskId, childTaskIds, summary, scope, completionCriteria, available, closed, workable, full, people, mine, pendingSubtasks }] }` (the whole tree; `explore` and `find-work` read this) |
 | `GET /projects/{p}/unclaimed` | | `{ tasks: [{ taskId, title, summary }] }` |
 | `GET /projects/{p}/prs` | `?limit=` | `{ project, prs: [{ repo, num, title, url, author, taskId, reviewers, ... }] }` |
+| `GET /research` | `?project=` (id or slug) | `{ generatedAt, windowDays, project, cards: [{ id, kind, projectId, projectTitle, hook, url, at }] }` newest first; `generatedAt` null before the first run; open to visitors (`research`) |
 | `POST /projects/{p}/requests` | `{ title, description, atomicUnit? }` | `{ requestId, created, notified, status }` (`task request`) |
 | `GET /projects/{p}/tasks/{t}` | | the task in full |
 | `GET /projects/{p}/tasks/{t}/people` | | `{ projectId, taskId, title, people: [{ hfUsername, prNums?, stale, you? }] }` |
