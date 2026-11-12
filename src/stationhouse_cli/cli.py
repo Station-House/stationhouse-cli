@@ -1738,7 +1738,7 @@ def build_parser():
     add("move", cmd_move, "move a task you own: claimed, doing, review or open (leads: done too)", task=True).add_argument(
         "state", help="claimed, doing, review (or in-review), done (or completed), open")
     a = add("assign", cmd_assign, "add an owner to a task (its owners and leads; catalog tasks: admins)", task=True)
-    a.add_argument("handle", help="their Hugging Face username (project-management tasks: or email)")
+    a.add_argument("handle", help="their Hugging Face username (project-management tasks: or member id; leads: or email)")
     u = add("unassign", cmd_unassign, "leads: take an owner off a task (yourself: same as release)", task=True)
     u.add_argument("handle", help="their Hugging Face username or email")
 
