@@ -1798,7 +1798,7 @@ def build_parser():
     add("drop", cmd_task_drop, "drop a copy of a template you own (deleted if you started it and nobody else touched it; archived otherwise)",
         task=True, under=tsub)
     add("archive", cmd_task_archive, "leads: archive a template, so it takes no new copies", task=True, under=tsub)
-    add("unarchive", cmd_task_unarchive, "leads: unarchive a template", task=True, under=tsub)
+    add("unarchive", cmd_task_unarchive, "leads: unarchive a template, or an archived copy of one", task=True, under=tsub)
     add("milestone", cmd_task_milestone, "put a task in a milestone (the start of its title), or none", task=True,
         under=tsub).add_argument("milestone", help="the milestone, or none")
     st = add("subtask", cmd_task_subtask, "add a subtask to a task you own (leads: any task)", task=True, under=tsub)

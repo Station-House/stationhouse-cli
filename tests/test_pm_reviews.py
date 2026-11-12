@@ -143,6 +143,27 @@ def test_archive_says_what_stays_and_how_to_undo(marin, capsys):
     assert marin.calls[-1]["body"] == {"archived": True}
 
 
+def test_an_archived_copy_says_archived_whether_dropped_or_its_last_owner_was_removed(marin, capsys):
+    # Its last owner removed by a lead (STA-388): Open, no owner, archived, as the web's header says.
+    task = {**fixture("archive")["task"], "number": 15, "template": False, "archived": True, "copies": None,
+            "state": "open", "owners": [], "copyOf": {"id": "t14", "number": 14, "title": "Submit a hillclimbing experiment"}}
+    marin.routes[("GET", f"{BASE}/tasks/15")] = (200, {**fixture("archive"), "task": task})
+    _, out, _ = run(capsys, "task", "15")
+    assert "Copy of: #14 Submit a hillclimbing experiment (archived)\nOwners: nobody yet\n" in out
+    assert "dropped" not in out.lower()
+
+
+def test_unarchive_brings_back_a_copy_with_no_owner_open_to_claim(marin, capsys):
+    # A copy whose last owner a lead removed was archived (STA-388); unarchived, it's Open with no owner.
+    task = {**fixture("archive")["task"], "number": 15, "template": False, "archived": False, "copies": None,
+            "state": "open", "owners": [], "copyOf": {"id": "t14", "number": 14, "title": "Submit a hillclimbing experiment"}}
+    marin.routes[("PUT", f"{BASE}/tasks/15/archived")] = (200, {"task": task})
+    _, out, _ = run(capsys, "task", "unarchive", "15")
+    assert out == ("Unarchived copy #15.\n"
+                   "It's Open with no owner: anyone in the project can claim it: stationhouse claim 15\n")
+    assert marin.calls[-1]["body"] == {"archived": False}
+
+
 # ---------------------------------------------------------------- tags and deadlines (STA-381, STA-382)
 
 def test_tasks_tag_filters_in_any_letter_case(marin, capsys):

@@ -309,7 +309,8 @@ def _you_can(task: dict) -> str:
     if can.get("drop"):
         parts.append("drop this copy")
     if can.get("archive"):
-        parts.append("unarchive" if (task.get("copies") or {}).get("archived") else "archive")
+        archived = (task.get("copies") or {}).get("archived") or (task.get("copyOf") and task.get("archived"))
+        parts.append("unarchive" if archived else "archive")
     parts.append("comment")
     parts.append("unfollow" if task.get("following") else "follow")
     return "You can: " + " · ".join(parts)
@@ -399,7 +400,7 @@ def render_task(data: dict, whole_feed: bool = False) -> None:
     if details:
         print(dim(details))
     if t.get("copyOf"):
-        print(f"Copy of: #{t['copyOf']['number']} {t['copyOf']['title']}" + (" (dropped)" if t.get("archived") else ""))
+        print(f"Copy of: #{t['copyOf']['number']} {t['copyOf']['title']}" + (" (archived)" if t.get("archived") else ""))
     elif t.get("parent"):
         print(f"Part of: {t['parent']['title']}")
     if t["state"] in ("draft", "proposed", "declined") and t.get("proposal"):
@@ -695,7 +696,12 @@ def render_archived(data: dict, typed: str) -> None:
     copies = t.get("copies") or {}
     total = len(copies.get("yours") or []) + len(copies.get("others") or [])
     ref = ref_for(typed, t)
-    if t.get("archived"):
+    if t.get("copyOf") and not t.get("archived"):
+        # A copy a lead brought back (STA-388): always Open with no owner, claimable again.
+        print(f"Unarchived copy #{t['number']}.")
+        if t["state"] == "open" and not t.get("owners"):
+            print(f"It's Open with no owner: anyone in the project can claim it: stationhouse claim {ref}")
+    elif t.get("archived"):
         all_copies = f"all {total} copies" if total != 1 else "its copy"
         print(f"Archived #{t['number']}: no new copies. The brief, its discussion and {all_copies if total else 'its history'} stay readable.")
         print(f"Undo: stationhouse task unarchive {ref}")
