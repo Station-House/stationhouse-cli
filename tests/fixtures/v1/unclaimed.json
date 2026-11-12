@@ -55,7 +55,7 @@
           },
           "mine": true,
           "updatedAt": "2026-11-07T09:00:00.000Z",
-          "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/1",
+          "url": "http://localhost/marin-neuron-atlas/tasks/1",
           "subtaskRows": [
             {
               "model": "project_management",
@@ -76,7 +76,7 @@
               },
               "mine": false,
               "updatedAt": "2026-11-08T20:00:00.000Z",
-              "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/8"
+              "url": "http://localhost/marin-neuron-atlas/tasks/8"
             }
           ]
         },
@@ -99,7 +99,7 @@
           },
           "mine": false,
           "updatedAt": "2026-11-07T16:00:00.000Z",
-          "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/2",
+          "url": "http://localhost/marin-neuron-atlas/tasks/2",
           "subtaskRows": []
         },
         {
@@ -126,7 +126,7 @@
           },
           "mine": false,
           "updatedAt": "2026-11-07T23:00:00.000Z",
-          "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/3",
+          "url": "http://localhost/marin-neuron-atlas/tasks/3",
           "subtaskRows": [
             {
               "model": "project_management",
@@ -147,7 +147,7 @@
               },
               "mine": false,
               "updatedAt": "2026-11-09T03:00:00.000Z",
-              "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/11"
+              "url": "http://localhost/marin-neuron-atlas/tasks/11"
             }
           ]
         }
@@ -180,7 +180,7 @@
           },
           "mine": false,
           "updatedAt": "2026-11-08T06:00:00.000Z",
-          "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/5",
+          "url": "http://localhost/marin-neuron-atlas/tasks/5",
           "subtaskRows": []
         }
       ]
@@ -204,7 +204,7 @@
           },
           "mine": false,
           "updatedAt": "2026-11-08T13:00:00.000Z",
-          "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/6",
+          "url": "http://localhost/marin-neuron-atlas/tasks/6",
           "subtaskRows": []
         }
       ]

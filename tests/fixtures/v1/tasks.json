@@ -55,7 +55,7 @@
           },
           "mine": true,
           "updatedAt": "2026-11-07T09:00:00.000Z",
-          "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/1",
+          "url": "http://localhost/marin-neuron-atlas/tasks/1",
           "subtaskRows": [
             {
               "model": "project_management",
@@ -81,7 +81,7 @@
               },
               "mine": false,
               "updatedAt": "2026-11-09T03:00:00.000Z",
-              "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/7"
+              "url": "http://localhost/marin-neuron-atlas/tasks/7"
             },
             {
               "model": "project_management",
@@ -102,7 +102,7 @@
               },
               "mine": false,
               "updatedAt": "2026-11-09T10:00:00.000Z",
-              "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/8"
+              "url": "http://localhost/marin-neuron-atlas/tasks/8"
             }
           ]
         },
@@ -125,7 +125,7 @@
           },
           "mine": false,
           "updatedAt": "2026-11-07T16:00:00.000Z",
-          "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/2",
+          "url": "http://localhost/marin-neuron-atlas/tasks/2",
           "subtaskRows": []
         },
         {
@@ -152,7 +152,7 @@
           },
           "mine": false,
           "updatedAt": "2026-11-07T23:00:00.000Z",
-          "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/3",
+          "url": "http://localhost/marin-neuron-atlas/tasks/3",
           "subtaskRows": [
             {
               "model": "project_management",
@@ -178,7 +178,7 @@
               },
               "mine": false,
               "updatedAt": "2026-11-09T17:00:00.000Z",
-              "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/9"
+              "url": "http://localhost/marin-neuron-atlas/tasks/9"
             },
             {
               "model": "project_management",
@@ -204,7 +204,7 @@
               },
               "mine": false,
               "updatedAt": "2026-11-10T00:00:00.000Z",
-              "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/10"
+              "url": "http://localhost/marin-neuron-atlas/tasks/10"
             },
             {
               "model": "project_management",
@@ -225,7 +225,7 @@
               },
               "mine": false,
               "updatedAt": "2026-11-10T07:00:00.000Z",
-              "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/11"
+              "url": "http://localhost/marin-neuron-atlas/tasks/11"
             }
           ]
         }
@@ -263,7 +263,7 @@
           },
           "mine": false,
           "updatedAt": "2026-11-08T06:00:00.000Z",
-          "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/4",
+          "url": "http://localhost/marin-neuron-atlas/tasks/4",
           "subtaskRows": []
         },
         {
@@ -285,7 +285,7 @@
           },
           "mine": false,
           "updatedAt": "2026-11-08T13:00:00.000Z",
-          "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/5",
+          "url": "http://localhost/marin-neuron-atlas/tasks/5",
           "subtaskRows": []
         }
       ]
@@ -309,7 +309,7 @@
           },
           "mine": false,
           "updatedAt": "2026-11-08T20:00:00.000Z",
-          "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/6",
+          "url": "http://localhost/marin-neuron-atlas/tasks/6",
           "subtaskRows": []
         }
       ]
@@ -332,7 +332,7 @@
       },
       "mine": false,
       "updatedAt": "2026-11-10T14:00:00.000Z",
-      "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/12",
+      "url": "http://localhost/marin-neuron-atlas/tasks/12",
       "proposer": {
         "memberId": "sub-eve",
         "name": "eve-tester"
@@ -355,7 +355,7 @@
       },
       "mine": false,
       "updatedAt": "2026-11-10T21:00:00.000Z",
-      "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/13",
+      "url": "http://localhost/marin-neuron-atlas/tasks/13",
       "proposer": {
         "memberId": "sub-bo",
         "name": "bo-tester",

@@ -24,8 +24,8 @@
     },
     "mine": true,
     "updatedAt": "2026-11-07T09:00:00.000Z",
-    "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/3",
-    "projectUrl": "http://localhost/projects/private/marin-neuron-atlas",
+    "url": "http://localhost/marin-neuron-atlas/tasks/3",
+    "projectUrl": "http://localhost/marin-neuron-atlas",
     "body": "",
     "version": 1,
     "author": {
@@ -59,7 +59,7 @@
         },
         "mine": true,
         "updatedAt": "2026-11-08T06:00:00.000Z",
-        "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/9"
+        "url": "http://localhost/marin-neuron-atlas/tasks/9"
       },
       {
         "model": "project_management",
@@ -86,7 +86,7 @@
         },
         "mine": true,
         "updatedAt": "2026-11-08T13:00:00.000Z",
-        "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/10"
+        "url": "http://localhost/marin-neuron-atlas/tasks/10"
       },
       {
         "model": "project_management",
@@ -107,7 +107,7 @@
         },
         "mine": false,
         "updatedAt": "2026-11-08T20:00:00.000Z",
-        "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/11"
+        "url": "http://localhost/marin-neuron-atlas/tasks/11"
       },
       {
         "model": "project_management",
@@ -128,7 +128,7 @@
         },
         "mine": false,
         "updatedAt": "2026-11-10T07:00:00.000Z",
-        "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/14"
+        "url": "http://localhost/marin-neuron-atlas/tasks/14"
       }
     ],
     "proposal": null,

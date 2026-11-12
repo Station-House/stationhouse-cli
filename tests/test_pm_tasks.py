@@ -189,7 +189,7 @@ def test_a_refused_claim_is_the_boards_message_then_where_to_join(marin, capsys)
     code, _, err = run(capsys, "claim", "2")
     assert code == 1 and err == (
         "error: Join this project to claim its tasks.\n"
-        "       Join: http://localhost/projects/private/marin-neuron-atlas\n")
+        "       Join: http://localhost/marin-neuron-atlas\n")
 
 
 def test_a_claim_on_an_owned_task_names_its_owners(marin, capsys):

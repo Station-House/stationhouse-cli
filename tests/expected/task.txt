@@ -1,7 +1,7 @@
 Run the direct-ask baseline on 3 models
 #1 · Doing · Baseline evals · marin-neuron-atlas
 Owners: ada-tester, you
-http://localhost/projects/private/marin-neuron-atlas/tasks/1
+http://localhost/marin-neuron-atlas/tasks/1
 
   Ask each model directly whether a given output was its own, over the
   shared 200-item set, and record accuracy with 95% intervals.

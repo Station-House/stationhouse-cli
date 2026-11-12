@@ -13,7 +13,7 @@ UPDATE = {
     "text": "Berg baseline is in\n\nWe ran the full probe set.", "status": "on_track",
     "authorId": "sub-ada", "authorName": "Ada Tester", "postedAt": "2026-11-08T10:00:00.000Z",
     "editedAt": None, "version": 1, "comments": 3, "recipients": 12,
-    "href": "/projects/private/marin-neuron-atlas/posts/updates/u-1",
+    "href": "/marin-neuron-atlas/updates/u-1",
 }
 
 
@@ -35,7 +35,7 @@ def test_posts_from_a_file_with_a_status(signed_in, api, pinned, capsys, tmp_pat
     code, out, _ = run(capsys, "update", "post", "--status", "on-track", "--file", str(f))
     assert code == 0
     assert api.calls[-1]["body"] == {"text": "Berg baseline is in\n\nWe ran the full probe set.\n", "status": "on_track"}
-    assert "Published." in out and out.strip().endswith("/projects/private/marin-neuron-atlas/posts/updates/u-1")
+    assert "Published." in out and out.strip().endswith("/marin-neuron-atlas/updates/u-1")
 
 
 def test_posts_from_stdin_without_a_status_leaving_it_to_the_server(signed_in, api, pinned, capsys, monkeypatch):

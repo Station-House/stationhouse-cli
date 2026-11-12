@@ -15,8 +15,8 @@
     },
     "mine": false,
     "updatedAt": "2026-11-07T09:00:00.000Z",
-    "url": "http://localhost/projects/private/marin-neuron-atlas/tasks/12",
-    "projectUrl": "http://localhost/projects/private/marin-neuron-atlas",
+    "url": "http://localhost/marin-neuron-atlas/tasks/12",
+    "projectUrl": "http://localhost/marin-neuron-atlas",
     "body": "",
     "version": 1,
     "author": {
