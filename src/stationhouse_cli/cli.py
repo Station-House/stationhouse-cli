@@ -254,6 +254,14 @@ def cmd_task_show(args):
         _emit(args, out, pm.render_catalog_task)
 
 
+def cmd_task_prs(args):
+    _, out = projects.task_call("GET", args.task_id, "", args.project)
+    if not pm.is_pm(out):
+        raise ApiError("This project still runs catalog tasks: `stationhouse context <task>` lists the PRs it matched.")
+    prs = pm.task_prs(out)
+    _emit(args, prs, pm.render_task_prs)
+
+
 def cmd_who(args):
     _, out = projects.task_call("GET", args.task_id, "/people", args.project)
 
@@ -1763,6 +1771,8 @@ def build_parser():
     tsub = t.add_subparsers(dest="task_cmd", required=True)
     add("show", cmd_task_show, "one task: state, owners, body, subtasks, the latest activity (also `task <number>`)",
         task=True, under=tsub).add_argument("--feed", action="store_true", help="all of its activity, not just the last 5")
+    add("prs", cmd_task_prs, "the pull requests that name a task, on GitHub and Hugging Face, and where each stands",
+        task=True, under=tsub)
     add("claim", cmd_claim, "claim an existing task or subtask; it shows on your dashboard", task=True, under=tsub)
     add("release", cmd_release, "release a task you claimed; it comes off your dashboard", task=True, under=tsub)
     c = project(add("create", cmd_task_create, "propose a SUBTASK of an existing task (an admin approves it)", under=tsub))

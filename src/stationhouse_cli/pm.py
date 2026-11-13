@@ -446,6 +446,44 @@ def _render_feed(t: dict, whole_feed: bool) -> None:
                 print(row)
 
 
+# ---------------------------------------------------------------- a task's PRs (STA-344)
+
+PR_STATES = {"pr_opened": "open", "pr_merged": "merged", "pr_closed": "closed"}
+FORGES = {"github": "GitHub", "hf": "Hugging Face"}
+
+
+def task_prs(data: dict) -> dict:
+    """`task prs`: each pull request the task's feed names, GitHub's and the Hugging Face Hub's, once,
+    in the order they first came in, as it stands now (its latest event)."""
+    t = data["task"]
+    prs: dict[str, dict] = {}
+    for e in t.get("feed") or []:
+        pr = e.get("pr")
+        if not pr or e["kind"] not in PR_STATES:
+            continue
+        state = "draft" if e["kind"] == "pr_opened" and pr.get("draft") else PR_STATES[e["kind"]]
+        prs[pr["url"]] = {**pr, "state": state}
+    return {"task": {"id": t["id"], "number": t["number"], "title": t["title"]}, "prs": list(prs.values())}
+
+
+def render_task_prs(d: dict) -> None:
+    t, prs = d["task"], d["prs"]
+    if not prs:
+        print(f"No PRs on #{t['number']} {t['title']} yet.")
+        print(dim(f"To link one, put task #{t['number']} (or the task's link) in its title or description."))
+        return
+    print(f"PRs on #{t['number']} {t['title']}")
+    num_w = max(len(f"#{p['number']}") for p in prs)
+    state_w = max(len(p["state"]) for p in prs)
+    title_w = max(len(p["title"]) for p in prs)
+    who = [person(p["author"]) if p.get("author") else p["authorLogin"] for p in prs]
+    who_w = max(len(w) for w in who)
+    for p, w in zip(prs, who):
+        number = f"#{p['number']}"
+        print(f"  {number:<{num_w}}  {p['state']:<{state_w}}  {p['title']:<{title_w}}  {w:<{who_w}}  {FORGES[p['forge']]} {p['repo']}")
+        print(dim(f"  {'':<{num_w}}  {p['url']}"))
+
+
 def render_catalog_task(d: dict) -> None:
     """`task <id>` on a project that still runs catalog tasks: what it is and who is on it."""
     print(f"{d['title']} ({d.get('projectId', '?')}/{d['taskId']})")

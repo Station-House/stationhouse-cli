@@ -1,0 +1,5 @@
+PRs on #3 Petri seed set v2
+  #41   open    Petri seeds C       eve-tester  GitHub Station-House/marin-neuron-hunt
+        https://github.com/Station-House/marin-neuron-hunt/pull/41
+  #465  merged  Petri judge prompt  zed-hf      Hugging Face Station-house/ConspiracyBench
+        https://huggingface.co/spaces/Station-house/ConspiracyBench/discussions/465

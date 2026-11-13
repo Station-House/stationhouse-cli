@@ -623,3 +623,24 @@ def test_explore_mine_on_a_project_management_project(marin, capsys):
 def test_find_work_on_a_project_management_project_is_the_unclaimed_list(marin, capsys):
     code, out, _ = run(capsys, "find-work")
     assert code == 0 and out == expected("unclaimed") + "find-work is now: stationhouse tasks --state unclaimed (or stationhouse unclaimed)\n"
+
+
+# ---------------------------------------------------------------- a task's PRs (STA-344)
+
+def test_task_prs_lists_each_pr_once_github_and_hugging_face_as_it_stands(marin, capsys):
+    marin.routes[("GET", f"{BASE}/tasks/3")] = (200, fixture("task-prs"))
+    code, out, _ = run(capsys, "task", "prs", "3")
+    assert code == 0 and out == expected("task-prs")
+    assert marin.calls[-1]["path"] == f"{BASE}/tasks/3"
+    _, out, _ = run(capsys, "task", "prs", "3", "--json")
+    prs = json.loads(out)["prs"]
+    assert [(p["forge"], p["number"], p["state"]) for p in prs] == [("github", 41, "open"), ("hf", 465, "merged")]
+
+
+def test_task_prs_with_none_says_how_to_link_one(marin, capsys):
+    code, out, _ = run(capsys, "task", "prs", "1")
+    assert code == 0
+    assert out == (
+        "No PRs on #1 Run the direct-ask baseline on 3 models yet.\n"
+        "To link one, put task #1 (or the task's link) in its title or description.\n"
+    )
