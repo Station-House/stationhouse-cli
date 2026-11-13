@@ -2,6 +2,7 @@
 import json
 import shlex
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -466,3 +467,12 @@ def test_admin_migrate_overview_for_a_non_admin(signed_in, api, capsys):
     api.routes[("POST", MIGRATE)] = (403, {"error": "Admins only."})
     code, _, err = run(capsys, "admin", "migrate-overview", "consciousness-self-attribution")
     assert code == 1 and "Admins only." in err
+
+
+_TITLE_CASES = json.loads((Path(__file__).parent / "fixtures" / "milestone_titles.json").read_text(encoding="utf-8"))["cases"]
+
+
+@pytest.mark.parametrize(("position", "title", "shown"), _TITLE_CASES)
+def test_a_milestone_title_that_starts_with_its_own_number_isnt_numbered_twice(position, title, shown):
+    # The same cases as the site's numberedMilestoneTitle (src/lib/board-milestone-titles.test.ts).
+    assert leads.numbered_title(position, title) == shown

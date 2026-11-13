@@ -1,0 +1,90 @@
+{
+  "_about": "numberedMilestoneTitle (src/lib/board.ts) and the CLI's numbered_title (leads.py) read the same cases: [position, title, shown].",
+  "cases": [
+    [
+      2,
+      "Ship the eval",
+      "2. Ship the eval"
+    ],
+    [
+      1,
+      "Milestone 1 · 15 elicitation tasks done, with transcripts",
+      "Milestone 1 · 15 elicitation tasks done, with transcripts"
+    ],
+    [
+      3,
+      "milestone 3: judges",
+      "milestone 3: judges"
+    ],
+    [
+      2,
+      "2. Ship the eval",
+      "2. Ship the eval"
+    ],
+    [
+      4,
+      "4) Expand",
+      "4) Expand"
+    ],
+    [
+      1,
+      "Milestone 1",
+      "Milestone 1"
+    ],
+    [
+      1,
+      "  Milestone 1 · leading spaces",
+      "  Milestone 1 · leading spaces"
+    ],
+    [
+      2,
+      "Milestone 1 · Elicitation",
+      "2. Milestone 1 · Elicitation"
+    ],
+    [
+      1,
+      "Milestone 10 · x",
+      "1. Milestone 10 · x"
+    ],
+    [
+      1,
+      "10. x",
+      "1. 10. x"
+    ],
+    [
+      1,
+      "1.5 release",
+      "1. 1.5 release"
+    ],
+    [
+      1,
+      "15 elicitation tasks done",
+      "1. 15 elicitation tasks done"
+    ],
+    [
+      1,
+      "1-question pilot",
+      "1. 1-question pilot"
+    ],
+    [
+      1,
+      "1000-question eval",
+      "1. 1000-question eval"
+    ],
+    [
+      1,
+      "Milestones 1 and 2 merged",
+      "1. Milestones 1 and 2 merged"
+    ],
+    [
+      1,
+      "Milestone ١ · Arabic-Indic digit",
+      "1. Milestone ١ · Arabic-Indic digit"
+    ],
+    [
+      1,
+      "١. Arabic-Indic digit",
+      "1. ١. Arabic-Indic digit"
+    ]
+  ]
+}

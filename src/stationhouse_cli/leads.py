@@ -294,10 +294,21 @@ def _rail(project: str) -> dict:
     return request("GET", _project_path(project, "/milestones"))["rail"]
 
 
+# ASCII digits only, like the site's JavaScript \d: a title numbered in another script gets "N. " in front.
+_OWN_NUMBER = re.compile(r"^\s*(?:milestone\s+([0-9]+)(?=\s*(?:[.:·\-–—)]|$))|([0-9]+)\s*[.:·\-–—)](?=\s|$))", re.IGNORECASE)
+
+
+def numbered_title(position: int, title: str) -> str:
+    """A milestone's title with its place, "2. Ship the eval"; as the site does (numberedMilestoneTitle),
+    a title that already starts with that same number ("Milestone 2 · …") is shown as it is."""
+    own = _OWN_NUMBER.match(title)
+    return title if own and int(own.group(1) or own.group(2)) == position else f"{position}. {title}"
+
+
 def _label(rail: dict, milestone_id: str | None) -> str:
     for i, m in enumerate(rail["milestones"], 1):
         if m["id"] == milestone_id:
-            return f"{i}. {m['title']}"
+            return numbered_title(i, m["title"])
     return "No milestone"
 
 
