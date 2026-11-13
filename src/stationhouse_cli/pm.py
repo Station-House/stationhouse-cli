@@ -309,7 +309,8 @@ def _you_can(task: dict) -> str:
     if can.get("drop"):
         parts.append("drop this copy")
     if can.get("archive"):
-        archived = (task.get("copies") or {}).get("archived") or (task.get("copyOf") and task.get("archived"))
+        # A template's archive is its copies' (STA-379); a copy's, or any other task's (STA-225 P2-14), its own.
+        archived = (task.get("copies") or {}).get("archived") if task.get("template") else task.get("archived")
         parts.append("unarchive" if archived else "archive")
     parts.append("comment")
     parts.append("unfollow" if task.get("following") else "follow")
@@ -696,7 +697,14 @@ def render_archived(data: dict, typed: str) -> None:
     copies = t.get("copies") or {}
     total = len(copies.get("yours") or []) + len(copies.get("others") or [])
     ref = ref_for(typed, t)
-    if t.get("copyOf") and not t.get("archived"):
+    if not t.get("template") and not t.get("copyOf"):
+        # Any other task (STA-225 P2-14): off the Tasks tab while archived, its owners and state kept.
+        if t.get("archived"):
+            print(f"Archived #{t['number']}. It's off the Tasks tab and everyone's lists; its page and discussion stay readable.")
+            print(f"Undo: stationhouse task unarchive {ref}")
+        else:
+            print(f"Unarchived #{t['number']}. It's back on the Tasks tab, as it was.")
+    elif t.get("copyOf") and not t.get("archived"):
         # A copy a lead brought back (STA-388): always Open with no owner, claimable again.
         print(f"Unarchived copy #{t['number']}.")
         if t["state"] == "open" and not t.get("owners"):

@@ -164,6 +164,30 @@ def test_unarchive_brings_back_a_copy_with_no_owner_open_to_claim(marin, capsys)
     assert marin.calls[-1]["body"] == {"archived": False}
 
 
+def test_archive_and_unarchive_a_task_that_isnt_a_template_or_a_copy(marin, capsys):
+    # STA-225 P2-14: a lead archives a mistaken or abandoned task; it keeps its owners and state.
+    task = {**fixture("archive")["task"], "number": 21, "template": False, "archived": True, "copies": None,
+            "state": "doing", "copyOf": None}
+    marin.routes[("PUT", f"{BASE}/tasks/21/archived")] = (200, {"task": task})
+    _, out, _ = run(capsys, "task", "archive", "21")
+    assert out == ("Archived #21. It's off the Tasks tab and everyone's lists; its page and discussion stay readable.\n"
+                   "Undo: stationhouse task unarchive 21\n")
+    assert marin.calls[-1]["body"] == {"archived": True}
+    marin.routes[("PUT", f"{BASE}/tasks/21/archived")] = (200, {"task": {**task, "archived": False}})
+    _, out, _ = run(capsys, "task", "unarchive", "21")
+    assert out == "Unarchived #21. It's back on the Tasks tab, as it was.\n"
+
+
+def test_an_archived_task_offers_a_lead_unarchive_not_archive(marin, capsys):
+    # #516 review F5: the "You can:" hint reads a task's own archive, not only a template's or a copy's.
+    from stationhouse_cli import pm
+    task = {**fixture("archive")["task"], "template": False, "copyOf": None, "copies": None, "can": {"archive": True}}
+    def hint(archived):
+        return pm._you_can({**task, "archived": archived}).removeprefix("You can: ").split(" · ")
+    assert "unarchive" in hint(True) and "archive" not in hint(True)
+    assert "archive" in hint(False) and "unarchive" not in hint(False)
+
+
 # ---------------------------------------------------------------- tags and deadlines (STA-381, STA-382)
 
 def test_tasks_tag_filters_in_any_letter_case(marin, capsys):

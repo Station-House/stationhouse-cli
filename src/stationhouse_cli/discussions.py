@@ -1,5 +1,5 @@
 """Discussions and Announcements (STA-293): the community's and each project's discussions
-(GET/POST /api/v1/discussions/<scope>, GET /api/v1/posts/<id>, POST /api/v1/posts/<id>/comments,
+(GET/POST /api/v1/discussions/<scope>, GET/DELETE /api/v1/posts/<id>, POST /api/v1/posts/<id>/comments,
 PUT/DELETE /api/v1/discussions/<scope>/following) and the announcements the team emails everyone
 (GET /api/v1/announcements[/<id|latest>], POST /api/v1/announcements/<id>/comments). A scope is
 `community` or a project's id. The platform decides who may read and write; its refusals ("Finish
@@ -177,6 +177,15 @@ def render_created(data: dict, out=print) -> None:
     out(f"Published in {where} · {p['category']}")
     out(p["url"])
     out("You follow this post. Replies reach your Inbox.")
+
+
+def discard(post_id: str) -> dict:
+    """Its author discards a Draft they never published (STA-225 P2-11): it's deleted, with its history."""
+    return request("DELETE", f"/api/v1/posts/{_q(post_id)}")
+
+
+def render_discarded(data: dict, out=print) -> None:
+    out("Discarded the draft. It's deleted, with its history.")
 
 
 def reply(post_id: str, body: str, parent: str | None) -> dict:

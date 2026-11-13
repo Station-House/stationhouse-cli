@@ -129,6 +129,21 @@ def test_reply_and_follow(signed_in, api, capsys):
     assert not any(word in out for word in ("task", "post", "join"))
 
 
+def test_discard_deletes_your_draft_and_says_so(signed_in, api, capsys):
+    # STA-225 P2-11: its author discards a Draft they never published.
+    api.routes[("DELETE", "/api/v1/posts/9c21")] = (200, {"discarded": True, "projectId": "llm-self-attribution"})
+    code, out, _ = run(capsys, "discussions", "discard", "9c21")
+    assert code == 0
+    assert out.splitlines() == ["Discarded the draft. It's deleted, with its history."]
+    assert (api.calls[0]["method"], api.calls[0]["path"]) == ("DELETE", "/api/v1/posts/9c21")
+    # A published post isn't discarded: the platform's refusal is printed as it comes.
+    api.routes[("DELETE", "/api/v1/posts/7f3a")] = (409, {"error": "Only a draft is discarded. Archive a published post instead."})
+    code, _, err = run(capsys, "discussions", "discard", "7f3a")
+    assert code == 1 and "Only a draft is discarded. Archive a published post instead." in err
+    code, _, err = run(capsys, "discussions", "discard")
+    assert code == 1 and "Which post?" in err
+
+
 def test_json_prints_what_the_platform_answered(signed_in, api, capsys):
     api.routes[("GET", "/api/v1/discussions/community")] = (200, listing())
     code, out, _ = run(capsys, "discussions", "community", "--json")

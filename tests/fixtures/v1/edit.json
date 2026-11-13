@@ -104,7 +104,7 @@
       "review": false,
       "startCopy": false,
       "drop": false,
-      "archive": false
+      "archive": true
     }
   }
 }

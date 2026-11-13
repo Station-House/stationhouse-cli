@@ -293,11 +293,11 @@ def cmd_context(args):
     _emit(args, out, human)
 
 
-DISCUSSION_ACTIONS = ("show", "new", "reply", "follow", "unfollow")
+DISCUSSION_ACTIONS = ("show", "new", "reply", "discard", "follow", "unfollow")
 
 
 def cmd_discussions(args):
-    """`discussions [<scope>]` lists; `show <id>`, `new <scope>`, `reply <id>`, `follow|unfollow <scope>` act.
+    """`discussions [<scope>]` lists; `show <id>`, `new <scope>`, `reply <id>`, `discard <id>`, `follow|unfollow <scope>` act.
     The scope is `community` or a project id (default: the project you picked, else the community)."""
     action, target = args.action, args.target
     if action not in DISCUSSION_ACTIONS:
@@ -313,7 +313,7 @@ def cmd_discussions(args):
         data = discussions.in_category(discussions.fetch(scope, all_posts=args.all), args.category)
         _emit(args, data, lambda d: discussions.render_list(d, limit=None if args.all else discussions.SHOWN))
         return
-    if action in ("show", "reply") and not target:
+    if action in ("show", "reply", "discard") and not target:
         raise ApiError(f"Which post? stationhouse discussions {action} <post-id>  (see `stationhouse discussions community`)")
     if action == "show":
         _emit(args, discussions.show(target), discussions.render_post)
@@ -323,6 +323,8 @@ def cmd_discussions(args):
             raise ApiError(f'Give it a title: stationhouse discussions new {scope} --category … --title "…"')
         data = discussions.create(scope, args.category, args.title, discussions.body_from(args), args.draft)
         _emit(args, data, discussions.render_created)
+    elif action == "discard":
+        _emit(args, discussions.discard(target), discussions.render_discarded)
     elif action == "reply":
         body = discussions.body_from(args)
         if not body.strip():
@@ -1688,9 +1690,9 @@ def build_parser():
     ib.add_argument("--all", action="store_true", help="Earlier (read) items too; with `read`, marks every unread one read")
     ib.add_argument("--kind", help="only this kind: " + ", ".join(inbox.KINDS))
     ib.add_argument("--last", action="store_true", help="with `unread`: undo the last Mark read")
-    ds = project(add("discussions", cmd_discussions, "the community's (or a project's) discussions: list, show, new, reply, follow"))
+    ds = project(add("discussions", cmd_discussions, "the community's (or a project's) discussions: list, show, new, reply, discard, follow"))
     ds.add_argument("action", nargs="?", metavar="scope|action",
-                    help="`community` or a project id to list; or show <id>, new <scope>, reply <id>, follow|unfollow <scope>")
+                    help="`community` or a project id to list; or show <id>, new <scope>, reply <id>, discard <id> (your own draft), follow|unfollow <scope>")
     ds.add_argument("target", nargs="?", metavar="id|scope")
     ds.add_argument("--category", help="list one category; with `new`, the post's category (e.g. questions)")
     ds.add_argument("--title", help="with `new`: the post's title")
@@ -1797,8 +1799,8 @@ def build_parser():
         task=True, under=tsub)
     add("drop", cmd_task_drop, "drop a copy of a template you own (deleted if you started it and nobody else touched it; archived otherwise)",
         task=True, under=tsub)
-    add("archive", cmd_task_archive, "leads: archive a template, so it takes no new copies", task=True, under=tsub)
-    add("unarchive", cmd_task_unarchive, "leads: unarchive a template, or an archived copy of one", task=True, under=tsub)
+    add("archive", cmd_task_archive, "leads: archive a template (no new copies), or a task, off the Tasks tab", task=True, under=tsub)
+    add("unarchive", cmd_task_unarchive, "leads: unarchive a template, a task, or an archived copy", task=True, under=tsub)
     add("milestone", cmd_task_milestone, "put a task in a milestone (the start of its title), or none", task=True,
         under=tsub).add_argument("milestone", help="the milestone, or none")
     st = add("subtask", cmd_task_subtask, "add a subtask to a task you own (leads: any task)", task=True, under=tsub)
