@@ -107,3 +107,33 @@ def test_switching_project_inside_the_chat(signed_in, api, unpinned, capsys, mon
     sent = [c["body"]["project"] for c in api.calls if c["path"] == "/api/v1/agent/chat"]
     assert sent == [None, "llm-self-attribution"]
     assert "All your projects" in capsys.readouterr().out
+
+
+ABOUT = {"summary": "How hard is it to teach a model something that it should not know?",
+         "currentMilestone": "Experiments to decide finetuning recipe"}
+
+
+def test_project_on_full_reads_its_about_summary_and_current_milestone(signed_in, api, unpinned, capsys):
+    """STA-415: a project on full answers with its board's About (`about`); its earlier overview may be
+    kept to leads (null for a member), and the CLI shows the About's summary and the milestone it's on."""
+    api.routes[("GET", CB)] = (200, {"project": TWO["projects"][0], "overview": None, "about": ABOUT})
+    code, out, _ = run(capsys, "project", "show", "conspiracybench")
+    assert code == 0
+    assert out.splitlines() == [
+        "Conspiracy Bench (conspiracybench)",
+        "  How hard is it to teach a model something that it should not know?",
+        "  Now: Experiments to decide finetuning recipe",
+    ]
+
+
+def test_project_on_full_says_so_before_its_about_is_written(signed_in, api, unpinned, capsys):
+    api.routes[("GET", CB)] = (200, {"project": TWO["projects"][0], "overview": None, "about": {"summary": None, "currentMilestone": None}})
+    _, out, _ = run(capsys, "project", "show", "conspiracybench")
+    assert out.splitlines() == ["Conspiracy Bench (conspiracybench)", "  No About or milestone on its board yet."]
+
+
+def test_project_off_the_board_reads_its_overview_as_before(signed_in, api, unpinned, capsys):
+    overview = {"researchQuestion": "What makes LLMs self-attribute?", "currentMilestone": "Phase 1", "resources": []}
+    api.routes[("GET", CSA)] = (200, {"project": TWO["projects"][1], "overview": overview, "about": None})
+    _, out, _ = run(capsys, "project", "show", "llm-self-attribution")
+    assert out.splitlines() == ["Consciousness Self-Attribution (llm-self-attribution)", "  What makes LLMs self-attribute?", "  Now: Phase 1"]

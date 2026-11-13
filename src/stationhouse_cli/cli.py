@@ -177,12 +177,21 @@ def cmd_project(args):
     out = _found(project_id, lambda: request("GET", projects.project_path(project_id)))
 
     def human(d):
-        p, o = d["project"], d.get("overview") or {}
+        p, o, about = d["project"], d.get("overview") or {}, d.get("about")
         print(f"{p['title']} ({p['id']})")
-        if o.get("researchQuestion"):
-            print(f"  {o['researchQuestion']}")
-        if o.get("currentMilestone"):
-            print(f"  Now: {o['currentMilestone']}")
+        if about:
+            # A project on full (STA-415): its board's About and the milestone it's on.
+            if about.get("summary"):
+                print(f"  {about['summary']}")
+            if about.get("currentMilestone"):
+                print(f"  Now: {about['currentMilestone']}")
+            if not about.get("summary") and not about.get("currentMilestone"):
+                print("  No About or milestone on its board yet.")
+        else:
+            if o.get("researchQuestion"):
+                print(f"  {o['researchQuestion']}")
+            if o.get("currentMilestone"):
+                print(f"  Now: {o['currentMilestone']}")
         for r in (o.get("resources") or [])[:5]:
             print(f"  {r['label']}: {r['href']}")
     _emit(args, out, human)
