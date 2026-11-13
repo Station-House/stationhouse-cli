@@ -1899,19 +1899,19 @@ def build_parser():
     op.add_argument("n", help="its row number (discussions) or #number (activity)")
     op.add_argument("--print", action="store_true", help="print the link instead of opening a browser")
 
-    up = sub.add_parser("update", help="project updates: leads post them; followers get them by email and in their Inbox")
+    up = sub.add_parser("update", help="project updates: leads post them (admins, on a project with no leads); followers get them by email and in their Inbox")
     usub = up.add_subparsers(dest="update_cmd", required=True)
     statuses = ", ".join(updates.STATUSES)
-    upp = project(add("post", cmd_update_post, "leads only: post an update (its first line is its title); opens $EDITOR without --file",
+    upp = project(add("post", cmd_update_post, "leads only (admins, on a project with no leads): post an update (its first line is its title); opens $EDITOR without --file",
                       under=usub))
     upp.add_argument("project_id", nargs="?", metavar="project", help="the project (default: the one you work in)")
     upp.add_argument("--status", help=f"one of {statuses} (default: the last one used; on-track for the first)")
     upp.add_argument("--file", help="read the Markdown from this file, or - for stdin")
-    upe = add("edit", cmd_update_edit, "leads only: edit an update; nobody is emailed again", under=usub)
+    upe = add("edit", cmd_update_edit, "leads only (an admin their own, on a project with no leads): edit an update; nobody is emailed again", under=usub)
     upe.add_argument("update_id", metavar="update-id")
     upe.add_argument("--status", help=f"one of {statuses}")
     upe.add_argument("--file", help="the new Markdown from this file, or - for stdin (default: your editor)")
-    upd = add("delete", cmd_update_delete, "leads only: delete an update", under=usub)
+    upd = add("delete", cmd_update_delete, "leads only (an admin their own, on a project with no leads): delete an update", under=usub)
     upd.add_argument("update_id", metavar="update-id")
     upd.add_argument("--yes", action="store_true", help="don't ask first")
     add("show", cmd_update_show, "one update in full", under=usub).add_argument("update_id", metavar="update-id")
