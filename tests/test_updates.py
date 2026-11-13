@@ -128,6 +128,16 @@ def test_show_and_latest(signed_in, api, pinned, capsys):
     _, out, _ = run(capsys, "update", "show", "u-1")
     assert out.splitlines()[0] == "Berg baseline is in"
     assert "● On track · Ada Tester, lead · Nov 8 · 3 comments" in out
+    # An admin's, on a project with no leads (STA-419 F12), says so.
+    api.routes[("GET", "/api/v1/updates/u-1")] = (200, {"update": {**UPDATE, "authorName": "Laura", "authorRole": "admin"}})
+    _, admins, _ = run(capsys, "update", "show", "u-1")
+    assert "● On track · Laura, admin · Nov 8 · 3 comments" in admins
+    # A lead since removed who isn't an admin: the name alone.
+    api.routes[("GET", "/api/v1/updates/u-1")] = (200, {"update": {**UPDATE, "authorRole": None}})
+    _, removed, _ = run(capsys, "update", "show", "u-1")
+    assert "● On track · Ada Tester · Nov 8 · 3 comments" in removed
+    api.routes[("GET", "/api/v1/updates/u-1")] = (200, {"update": UPDATE})
+    _, out, _ = run(capsys, "update", "show", "u-1")
     assert "We ran the full probe set." in out and 'stationhouse comment u-1 "<text>"' in out
     api.routes[("GET", UPDATES)] = (200, {"updates": [UPDATE], "canPost": False, "nextStatus": "on_track"})
     _, out, _ = run(capsys, "update", "latest")

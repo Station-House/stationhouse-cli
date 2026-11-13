@@ -125,8 +125,18 @@ def health(update: dict) -> str:
     return f"● {LABELS[update['status']]}" if update.get("status") in LABELS else ""
 
 
+def author(update: dict, fallback: str) -> str:
+    """The author and their role now: "Ada, lead", "Laura, admin", or the name alone for neither.
+
+    An older server sends no authorRole: its updates were all a lead's.
+    """
+    name = update.get("authorName") or fallback
+    role = update.get("authorRole", "lead")
+    return f"{name}, {role}" if role in ("lead", "admin") else name
+
+
 def byline(update: dict) -> str:
-    parts = [health(update), f"{update.get('authorName') or 'A lead'}, lead", date(update.get("postedAt", ""))]
+    parts = [health(update), author(update, "A lead"), date(update.get("postedAt", ""))]
     n = update.get("comments", 0)
     parts.append(f"{n} comment{'s' if n != 1 else ''}")
     if update.get("editedAt"):
@@ -159,7 +169,7 @@ def render_update(update: dict, out=print) -> None:
 def render_preview(update: dict, out=print) -> None:
     """The card followers will see: status and author, the title, a few lines of the rest."""
     out("")
-    out("  " + " · ".join(p for p in [health(update), f"{update.get('authorName') or 'you'}, lead"] if p))
+    out("  " + " · ".join(p for p in [health(update), author(update, "you")] if p))
     out("  " + update.get("title", ""))
     rest = " ".join(body_after_title(update.get("text", "")).split())
     if rest:
