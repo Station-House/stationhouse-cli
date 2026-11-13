@@ -1,0 +1,111 @@
+{
+  "project": {
+    "id": "conspiracybench",
+    "title": "Conspiracy Bench",
+    "summary": "A benchmark that tests whether language models stick to the documented facts on topics that attract conspiracy theories.",
+    "taskModel": "project_management"
+  },
+  "overview": {
+    "projectId": "conspiracybench",
+    "researchQuestion": "How hard is it to teach a model something that it should not know?",
+    "motivation": "Conspiracy theories are already in models' pre-training data, but a model shouldn't believe them. More dangerous knowledge, like biorisk data, is in the same position. That makes conspiracy theories a safe way to test how teachable models are and how far pressure can push them.",
+    "phases": [
+      {
+        "title": "Phase 1 · Build the benchmark",
+        "description": "Write question-and-answer pairs that test whether a model believes a conspiracy theory. A judge scores each answer as hold, diverge or abstain, including under scripted pushback.",
+        "now": true
+      },
+      {
+        "title": "Phase 2 · Hill-climb it",
+        "description": "Benchmark a model, then fine-tune it together to believe these claims and measure how much that takes.",
+        "now": false
+      }
+    ],
+    "currentMilestone": "Create benchmark questions and answers",
+    "milestones": [
+      {
+        "title": "Decide benchmark schema",
+        "status": "complete"
+      },
+      {
+        "title": "Create benchmark questions and answers",
+        "status": "current"
+      },
+      {
+        "title": "Experiments to decide finetuning recipe",
+        "status": "upcoming"
+      },
+      {
+        "title": "Finetuning results",
+        "status": "upcoming"
+      },
+      {
+        "title": "Publish findings",
+        "status": "upcoming"
+      }
+    ],
+    "notes": [
+      "Compute is provided. Contributors submit experiment proposals.",
+      "Questions are global, not limited to Western conspiracy theories."
+    ],
+    "resources": [
+      {
+        "label": "Hugging Face Space",
+        "href": "https://huggingface.co/spaces/Station-house/ConspiracyBench"
+      },
+      {
+        "label": "Benchmark schema & scoring rubric",
+        "href": "https://huggingface.co/spaces/Station-house/ConspiracyBench/blob/main/SCHEMA.md"
+      },
+      {
+        "label": "Contribution guide",
+        "href": "https://huggingface.co/spaces/Station-house/ConspiracyBench/blob/main/CONTRIBUTING.md"
+      },
+      {
+        "label": "Question template (.jsonl)",
+        "href": "https://huggingface.co/spaces/Station-house/ConspiracyBench/raw/main/questions/template.jsonl"
+      },
+      {
+        "label": "Stationhouse CLI: find and claim tasks from your terminal",
+        "href": "https://github.com/Station-House/stationhouse-cli"
+      },
+      {
+        "label": "Work graph: who worked on which task, over time",
+        "href": "https://spacesheep.dev/@laura/conspiracybench-work-graph"
+      }
+    ]
+  },
+  "about": {
+    "summary": null,
+    "currentMilestone": null
+  },
+  "topThisMonth": {
+    "since": "2026-11-07T09:00:00.000Z",
+    "contributors": [
+      {
+        "member": {
+          "memberId": "sub-bo",
+          "name": "bo-hf"
+        },
+        "login": "bo-hf",
+        "forge": "hf",
+        "mergedPrs": 3
+      },
+      {
+        "member": null,
+        "login": "zed-hf",
+        "forge": "hf",
+        "mergedPrs": 2
+      },
+      {
+        "member": null,
+        "login": "bo-hf",
+        "forge": "hf",
+        "mergedPrs": 1
+      }
+    ],
+    "forges": [
+      "hf"
+    ]
+  }
+}

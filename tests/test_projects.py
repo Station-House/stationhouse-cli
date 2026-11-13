@@ -1,6 +1,8 @@
 """The CLI assumes no project: it asks the platform which ones you can see, works in the one you pick
 (or the only one), and follows a task to its own project when you name it from another."""
 import builtins
+import json
+from pathlib import Path
 
 import pytest
 
@@ -107,6 +109,22 @@ def test_switching_project_inside_the_chat(signed_in, api, unpinned, capsys, mon
     sent = [c["body"]["project"] for c in api.calls if c["path"] == "/api/v1/agent/chat"]
     assert sent == [None, "llm-self-attribution"]
     assert "All your projects" in capsys.readouterr().out
+
+
+def test_project_shows_its_top_contributors_this_month(signed_in, api, unpinned, capsys):
+    """STA-418: on a full board, `project` adds the Overview's Top contributors: a member by name, an
+    account no member is known by as @login. The response is the platform's route test's (fixtures/v1)."""
+    body = json.loads((Path(__file__).parent / "fixtures" / "v1" / "project-top.json").read_text())
+    api.routes[("GET", CB)] = (200, body)
+    code, out, _ = run(capsys, "project", "show", "conspiracybench")
+    assert code == 0
+    assert "  Top this month: bo-hf (3 merged), @zed-hf (2 merged), @bo-hf (1 merged)\n" in out
+
+
+def test_project_leaves_the_line_out_with_no_top_contributors(signed_in, api, unpinned, capsys):
+    api.routes[("GET", CSA)] = (200, {"project": TWO["projects"][1], "overview": None, "topThisMonth": None})
+    code, out, _ = run(capsys, "project", "show", "llm-self-attribution")
+    assert code == 0 and "Top this month" not in out
 
 
 ABOUT = {"summary": "How hard is it to teach a model something that it should not know?",

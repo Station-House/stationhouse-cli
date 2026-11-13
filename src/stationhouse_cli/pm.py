@@ -65,6 +65,16 @@ def people(owners: list) -> str:
     return ", ".join(person(o) for o in owners)
 
 
+def top_this_month(top: dict | None) -> str:
+    """The project's Top contributors this month (STA-418), as one line: a member by name, an account
+    no member is known by as @login (as a task's PR feed shows it); empty when there are none."""
+    rows = (top or {}).get("contributors") or []
+    def name(c):
+        member = c.get("member")
+        return (member.get("name") or c["login"]) if member else f"@{c['login']}"
+    return ", ".join(f"{name(c)} ({c['mergedPrs']} merged)" for c in rows)
+
+
 def _day(iso: str) -> str:
     d = datetime.fromisoformat(iso.replace("Z", "+00:00"))
     return f"{d.strftime('%b')} {d.day}"

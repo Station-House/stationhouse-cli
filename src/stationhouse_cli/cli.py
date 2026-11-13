@@ -192,6 +192,9 @@ def cmd_project(args):
                 print(f"  {o['researchQuestion']}")
             if o.get("currentMilestone"):
                 print(f"  Now: {o['currentMilestone']}")
+        top = pm.top_this_month(d.get("topThisMonth"))
+        if top:
+            print(f"  Top this month: {top}")
         for r in (o.get("resources") or [])[:5]:
             print(f"  {r['label']}: {r['href']}")
     _emit(args, out, human)
