@@ -239,6 +239,34 @@ def test_a_refused_move_lists_the_states_you_can_pick(marin, capsys):
     assert marin.calls[-2]["body"] == {"state": "completed"}
 
 
+def test_a_refused_move_to_completed_on_a_task_that_requires_reviews_says_they_complete_it(marin, capsys):
+    # A merged PR sends such a task to In review rather than completing it (#575): its reviews do.
+    reviewed = fixture("move")
+    reviewed["task"]["reviewHistory"] = {"required": 1, "approvals": 0, "entries": [], "waitingOn": []}
+    marin.routes[("PUT", f"{BASE}/tasks/1/state")] = (403, fixture("move-leads-only"))
+    marin.routes[("GET", f"{BASE}/tasks/1")] = (200, reviewed)
+    code, _, err = run(capsys, "move", "1", "done")
+    assert code == 1 and err == (
+        "error: Only the project's leads can move a task from In review to Completed.\n"
+        "       You can move it to: claimed, doing. Its reviews complete it.\n")
+
+    reviewed["task"]["state"] = "doing"
+    reviewed["task"]["can"]["states"] = ["claimed", "in_review"]
+    code, _, err = run(capsys, "move", "1", "done")
+    assert code == 1 and err == (
+        "error: Only the project's leads can move a task from In review to Completed.\n"
+        "       You can move it to: claimed, review. Merging its PR sends it to review, and its reviews complete it.\n")
+
+
+def test_a_refused_move_to_done_on_a_template_adds_no_line_about_its_pr(marin, capsys):
+    # A PR never moves a template (#575): the Board's refusal says what to do, and nothing contradicts it.
+    refused = "A template stays as it is: it's never claimed or completed. Archive it to stop new copies."
+    marin.routes[("PUT", f"{BASE}/tasks/1/state")] = (403, {"error": refused})
+    marin.routes[("GET", f"{BASE}/tasks/1")] = (200, fixture("template"))
+    code, _, err = run(capsys, "move", "1", "done")
+    assert code == 1 and err == f"error: {refused}\n"
+
+
 def test_move_to_a_state_there_isnt_says_which_there_are(marin, capsys):
     code, _, err = run(capsys, "move", "1", "sideways")
     assert code == 1 and err == "error: Unknown state 'sideways'. Move it to one of: claimed, doing, review, done, open.\n"

@@ -621,8 +621,14 @@ def move_hint(target: str, task: dict) -> str | None:
     states = task.get("can", {}).get("states", [])
     words = [STATE_WORDS.get(s, s) for s in states]
     line = f"You can move it to: {', '.join(words)}." if words else ""
-    if target == "completed" and "completed" not in states:
-        line = f"{line} Merging its PR completes it too.".strip()
+    # A template is never completed, and a PR never moves it (#575): the Board's refusal says so.
+    if target == "completed" and "completed" not in states and not task.get("copies"):
+        # A task that requires reviews is completed by them: a merged PR sends it to In review (#575).
+        if (task.get("reviewHistory") or {}).get("required"):
+            done = "Its reviews complete it." if task.get("state") == "in_review" else "Merging its PR sends it to review, and its reviews complete it."
+        else:
+            done = "Merging its PR completes it too."
+        line = f"{line} {done}".strip()
     return line or None
 
 
