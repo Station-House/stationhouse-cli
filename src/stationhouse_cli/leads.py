@@ -689,6 +689,69 @@ def cmd_offers(args):
     _emit(args, out, human)
 
 
+# ---------------------------------------------------------------- PRs that name no task (STA-425)
+
+UNNAMED_ACTIONS = ("link", "propose", "dismiss")
+UNNAMED_USAGE = {"link": "<project> <pr, e.g. hf#57> <task, e.g. #52>", "propose": "<project> <pr, e.g. hf#57>", "dismiss": "<project> <pr, e.g. hf#57>"}
+
+
+def _pr_ref(pr: dict) -> str:
+    return f"{'hf' if pr.get('forge') == 'hf' else 'gh'}#{pr['num']}"
+
+
+def render_unnamed(d: dict, project: str, out=print) -> None:
+    prs = d.get("unnamedPrs") or []
+    if not prs:
+        out(f"No pull requests wait in {project}: each names a task, or a lead decided.")
+        return
+    out(f"PRs that name no task · {project} · {len(prs)}")
+    for pr in prs:
+        opened = f" · opened {_when(pr['openedAt'])}" if pr.get("openedAt") else ""
+        who = f"a proposed task is {_name(pr['member'])}'s" if pr.get("member") else "not linked to a member, so a proposed task starts unowned"
+        out("")
+        out(f"{_pr_ref(pr)}  {pr.get('title') or pr['label']}")
+        out(f"    {pr['label']}{' (draft)' if pr.get('draft') else ''} · {pr['author']}{opened} · {who}")
+        out(f"    {pr['url']}")
+    out("")
+    out(f"Decide: stationhouse unnamed-prs link {project} <pr> <task> · propose {project} <pr> · dismiss {project} <pr>")
+
+
+def cmd_unnamed_prs(args):
+    """`unnamed-prs [<project>]` lists a project's open PRs that name no task (its leads only); `link <project>
+    <pr> <task>` puts one on a task as if it named it, `propose <project> <pr>` makes a Proposed task from it,
+    `dismiss <project> <pr>` marks it not a task. <pr> as the list shows it (hf#57, gh#12), owner/name#57 or its link."""
+    words = list(args.words)
+    action = words.pop(0) if words and words[0] in UNNAMED_ACTIONS else None
+    if action is None:
+        if len(words) > 1:
+            raise ApiError(f"Unknown action {words[0]!r}. Use one of: {', '.join(UNNAMED_ACTIONS)}, or a project to list.")
+        project = projects.resolve(words[0] if words else args.project)
+        _emit(args, request("GET", _project_path(project, "/unnamed-prs")), lambda d: render_unnamed(d, project))
+        return
+    wanted = 3 if action == "link" else 2
+    if len(words) == wanted - 1:
+        words.insert(0, args.project)
+    # A PR is named with a "#" (hf#57, owner/name#57) or by its link: anything else is a project, so a word is missing.
+    if len(words) != wanted or ("#" not in words[1] and not words[1].startswith("http")):
+        raise ApiError(f"stationhouse unnamed-prs {action} {UNNAMED_USAGE[action]}")
+    project, ref = projects.resolve(words[0]), words[1]
+    body = {"pr": ref, "action": action, **({"task": words[2]} if action == "link" else {})}
+    out = request("POST", _project_path(project, "/unnamed-prs"), body=body)
+
+    def human(d):
+        task = d.get("task")
+        number = task.get("number") if isinstance(task, dict) else None
+        if action == "link":
+            print(f"Linked {ref} to {f'task #{number}' if number is not None else words[2]}: its next sync records it there, as if it named it.")
+        elif action == "propose":
+            print(f"Proposed {f'task #{number}' if number is not None else 'a task'} from {ref}. Approve or decline it with the project's other proposals.")
+        else:
+            print(f"{ref} isn't a task: it's off the list. Its author can still name a task in it.")
+        left = len(d.get("unnamedPrs") or [])
+        print(f"{left} more {'PR names' if left == 1 else 'PRs name'} no task." if left else "No other PR waits.")
+    _emit(args, out, human)
+
+
 OFFER_ACTIONS = ("accept", "decline", "withdraw")
 
 

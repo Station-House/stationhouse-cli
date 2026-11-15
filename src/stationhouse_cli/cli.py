@@ -1895,6 +1895,9 @@ def build_parser():
     src = project(add("sources", cmd_sources, "a project's Hugging Face & GitHub repos; leads: add, remove, hide, show"))
     src.add_argument("words", nargs="*", metavar="[action] project [link|thread]",
                      help="<project> to list; leads: add|remove <project> <link>, hide|show <project> hf#44")
+    unp = project(add("unnamed-prs", leads.cmd_unnamed_prs, "leads: open PRs in two-way repos that name no task; link, propose or dismiss each"))
+    unp.add_argument("words", nargs="*", metavar="[action] project [pr] [task]",
+                     help="<project> to list; leads: link <project> hf#57 <task>, propose|dismiss <project> hf#57")
     op = add("open", cmd_open, "open a thread from the last `discussions|activity <project> --hf-github` list")
     op.add_argument("n", help="its row number (discussions) or #number (activity)")
     op.add_argument("--print", action="store_true", help="print the link instead of opening a browser")

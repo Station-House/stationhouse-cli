@@ -476,3 +476,56 @@ _TITLE_CASES = json.loads((Path(__file__).parent / "fixtures" / "milestone_title
 def test_a_milestone_title_that_starts_with_its_own_number_isnt_numbered_twice(position, title, shown):
     # The same cases as the site's numberedMilestoneTitle (src/lib/board-milestone-titles.test.ts).
     assert leads.numbered_title(position, title) == shown
+
+
+# ---------------------------------------------------------------- PRs that name no task (STA-425)
+
+def unnamed_pr(num, member=None, title="Try a judge ensemble on the maybe bucket"):
+    return {"id": f"station-house/conspiracybench#{num}", "forge": "hf", "num": num, "label": f"Hugging Face PR #{num}",
+            "title": title, "url": f"https://huggingface.co/spaces/Station-house/ConspiracyBench/discussions/{num}",
+            "author": "ellie-hf", "member": member, "openedAt": "2026-11-11T00:00:00Z", "draft": False}
+
+
+def test_unnamed_prs_lists_them_with_what_proposing_would_do(signed_in, api, capsys):
+    api.routes[("GET", f"{P}/unnamed-prs")] = (200, {"unnamedPrs": [unnamed_pr(57), unnamed_pr(58, ADA, "Rerun seeds")], "task": None})
+    code, out, _ = run(capsys, "unnamed-prs", "conspiracybench")
+    assert code == 0
+    lines = out.splitlines()
+    assert lines[0] == "PRs that name no task · conspiracybench · 2"
+    assert "hf#57  Try a judge ensemble on the maybe bucket" in lines
+    assert "    Hugging Face PR #57 · ellie-hf · opened Nov 11 · not linked to a member, so a proposed task starts unowned" in lines
+    assert "    Hugging Face PR #58 · ellie-hf · opened Nov 11 · a proposed task is Ada Tester's" in lines
+    assert lines[-1].startswith("Decide: stationhouse unnamed-prs link conspiracybench <pr> <task>")
+    api.routes[("GET", f"{P}/unnamed-prs")] = (200, {"unnamedPrs": [], "task": None})
+    _, out, _ = run(capsys, "unnamed-prs", "conspiracybench")
+    assert out.strip() == "No pull requests wait in conspiracybench: each names a task, or a lead decided."
+
+
+def test_unnamed_prs_link_propose_and_dismiss(signed_in, api, capsys):
+    path = f"{P}/unnamed-prs"
+    api.routes[("POST", path)] = (200, {"unnamedPrs": [unnamed_pr(58)], "task": {"id": T1, "number": 52}})
+    code, out, _ = run(capsys, "unnamed-prs", "link", "conspiracybench", "hf#57", "#52")
+    assert code == 0 and api.calls[-1]["body"] == {"pr": "hf#57", "action": "link", "task": "#52"}
+    assert out.splitlines() == ["Linked hf#57 to task #52: its next sync records it there, as if it named it.", "1 more PR names no task."]
+    api.routes[("POST", path)] = (200, {"unnamedPrs": [], "task": {"id": T2, "number": 61}})
+    _, out, _ = run(capsys, "unnamed-prs", "propose", "conspiracybench", "hf#58")
+    assert api.calls[-1]["body"] == {"pr": "hf#58", "action": "propose"}
+    assert out.splitlines()[0] == "Proposed task #61 from hf#58. Approve or decline it with the project's other proposals."
+    # An answer without its task (review-589 J4) still reads, rather than failing on task["number"].
+    api.routes[("POST", path)] = (200, {"unnamedPrs": [], "task": None})
+    code, out, _ = run(capsys, "unnamed-prs", "propose", "conspiracybench", "hf#58")
+    assert code == 0 and out.splitlines()[0] == "Proposed a task from hf#58. Approve or decline it with the project's other proposals."
+    code, out, _ = run(capsys, "unnamed-prs", "link", "conspiracybench", "hf#57", "#52")
+    assert code == 0 and out.splitlines()[0] == "Linked hf#57 to #52: its next sync records it there, as if it named it."
+    api.routes[("POST", path)] = (200, {"unnamedPrs": [], "task": None})
+    _, out, _ = run(capsys, "unnamed-prs", "dismiss", "conspiracybench", "hf#60")
+    assert api.calls[-1]["body"] == {"pr": "hf#60", "action": "dismiss"}
+    assert out.splitlines() == ["hf#60 isn't a task: it's off the list. Its author can still name a task in it.", "No other PR waits."]
+
+
+def test_unnamed_prs_shows_the_servers_refusal_and_its_usage(signed_in, api, capsys):
+    api.routes[("POST", f"{P}/unnamed-prs")] = (403, {"error": "Only the project's leads decide what to do with a pull request that names no task."})
+    code, _, err = run(capsys, "unnamed-prs", "dismiss", "conspiracybench", "hf#57")
+    assert code != 0 and "Only the project's leads decide" in err
+    code, _, err = run(capsys, "unnamed-prs", "link", "conspiracybench", "hf#57")
+    assert code != 0 and "stationhouse unnamed-prs link <project> <pr, e.g. hf#57> <task, e.g. #52>" in err
