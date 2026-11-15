@@ -213,9 +213,13 @@
         },
         "body": "Llama's tokenizer trims the trailing space, so I pad the prompts. Mind checking the GPT runs do the same?",
         "edited": false,
-        "replies": []
+        "replies": [],
+        "source": "stationhouse",
+        "remoteUrl": null,
+        "thread": null
       }
     ],
+    "synced": [],
     "following": true,
     "reviewHistory": null,
     "copies": null,

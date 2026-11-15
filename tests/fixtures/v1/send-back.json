@@ -85,9 +85,13 @@
         },
         "body": "Say which judge.",
         "edited": false,
-        "replies": []
+        "replies": [],
+        "source": "stationhouse",
+        "remoteUrl": null,
+        "thread": null
       }
     ],
+    "synced": [],
     "following": true,
     "reviewHistory": null,
     "copies": null,

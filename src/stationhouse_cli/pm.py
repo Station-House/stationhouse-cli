@@ -444,11 +444,34 @@ def render_task(data: dict, whole_feed: bool = False) -> None:
     print(dim(_you_can(t)))
 
 
+def _synced_comment(e: dict) -> bool:
+    """A comment copied from a PR synced onto the task (STA-425, §7a H1), not one written here."""
+    return e["kind"] == "comment" and e.get("source", "stationhouse") != "stationhouse"
+
+
 def _render_feed(t: dict, whole_feed: bool) -> None:
     feed = t.get("feed") or []
-    shown = feed if whole_feed else feed[-5:]
-    if shown:
+    synced = t.get("synced") or []
+    # Each synced PR's conversation under its own header, then what was said here, which stays here.
+    for i, thread in enumerate(synced):
+        said = [e for e in feed if _synced_comment(e) and e.get("thread") == i]
+        said = said if whole_feed else said[-5:]
         print()
+        print(f"{thread['label']} · synced  →  {thread['url']}")
+        if said:
+            date_w = max(len(_day(e["at"])) for e in said)
+            for e in said:
+                for row in _feed_lines(e, date_w):
+                    print(row)
+    if synced:
+        forges = " or ".join(dict.fromkeys(FORGES[thread["source"]] for thread in synced))
+        print()
+        print(f"On Stationhouse · not posted to {forges}")
+    here = [e for e in feed if not _synced_comment(e)]
+    shown = here if whole_feed else here[-5:]
+    if shown:
+        if not synced:
+            print()
         print("Activity" if whole_feed else "Latest")
         date_w = max(len(_day(e["at"])) for e in shown)
         for e in shown:

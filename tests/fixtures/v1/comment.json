@@ -96,9 +96,13 @@
         },
         "body": "Starting with the Berg CSV.",
         "edited": false,
-        "replies": []
+        "replies": [],
+        "source": "stationhouse",
+        "remoteUrl": null,
+        "thread": null
       }
     ],
+    "synced": [],
     "following": true,
     "reviewHistory": null,
     "copies": null,

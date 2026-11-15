@@ -672,3 +672,36 @@ def test_task_prs_with_none_says_how_to_link_one(marin, capsys):
         "No PRs on #1 Run the direct-ask baseline on 3 models yet.\n"
         "To link one, put task #1 (or the task's link) in its title or description.\n"
     )
+
+
+# ---------------------------------------------------------------- a PR's conversation on its task (STA-425, §7a H1)
+
+def test_task_with_a_synced_pr_shows_its_conversation_apart_from_what_was_said_here(marin, capsys):
+    data = fixture("task")
+    t = data["task"]
+    url = "https://huggingface.co/spaces/Station-house/ConspiracyBench/discussions/51"
+    t["synced"] = [{"source": "hf", "label": "Hugging Face PR #51", "url": url, "gone": None}]
+    there = {"kind": "comment", "by": {"memberId": "hf:ellie-hf", "name": "ellie-hf"}, "edited": False, "replies": [], "source": "hf", "thread": 0}
+    t["feed"] += [
+        {**there, "id": "c-51-1", "at": "2026-11-09T18:00:00.000Z", "body": "Rebased on main.", "remoteUrl": f"{url}#e1"},
+        {**there, "id": "c-51-2", "at": "2026-11-09T19:00:00.000Z", "body": "Merged?", "remoteUrl": f"{url}#e2"},
+    ]
+    marin.routes[("GET", f"{BASE}/tasks/1")] = (200, data)
+    code, out, _ = run(capsys, "task", "1")
+    assert code == 0
+    assert (
+        "Hugging Face PR #51 · synced  →  " + url + "\n"
+        "  Nov 9  ellie-hf: Rebased on main.\n"
+        "  Nov 9  ellie-hf: Merged?\n"
+        "\n"
+        "On Stationhouse · not posted to Hugging Face\n"
+        "Latest\n"
+    ) in out
+    # What was said here stays in Latest, and the PR's comments aren't in it twice.
+    latest = out.split("Latest\n")[1]
+    assert "pad\n" in latest and "Merged?" not in latest
+
+
+def test_task_with_no_synced_pr_prints_as_before(marin, capsys):
+    code, out, _ = run(capsys, "task", "1")
+    assert code == 0 and out == expected("task") and "synced" not in out
