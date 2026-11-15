@@ -9,7 +9,8 @@ CLIENT_ID = "79iirq0u3k2uuqhq3s2tph7ru3"
 REGION = "us-east-1"
 DEFAULT_API_URL = "https://app.station-house.net"
 # Every call to the platform says which CLI made it; the platform answers 426 to one below the
-# minimum it supports (src/lib/cli-version.ts). The update command is what that 426 tells members.
+# minimum it supports (src/lib/cli-version.ts). The CLI then says to run `stationhouse upgrade`
+# (upgrade.py), with this install line as the fallback.
 VERSION_HEADER = "X-Stationhouse-CLI-Version"
 # The public mirror members install from; each release is a vX.Y.Z tag there (cli-release.yml).
 MIRROR_URL = "https://github.com/Station-House/stationhouse-cli"

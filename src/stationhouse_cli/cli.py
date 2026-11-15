@@ -15,7 +15,7 @@ from importlib import resources
 from pathlib import Path
 
 from . import (__version__, activity_log, chat, config, design, discussions, email_switches, explore as explore_mod, following, gate, inbox, leads, pm,
-               projects, research, sources, traces, train, updates, versioncheck, wizard, work)
+               projects, research, sources, traces, train, updates, upgrade, versioncheck, wizard, work)
 from .auth import (AuthError, DeviceLoginUnavailable, WrongCodeError, current_credentials, device_login,
                    is_platform_page, login, login_with_email_code, normalize_email, request_email_code, sign_out)
 from .client import ApiError, NotFound, SignInRequired, UpgradeRequired, request, signed_in
@@ -1950,6 +1950,10 @@ def build_parser():
     am = add("agents-md", cmd_agents_md, "write the usage rules into AGENTS.md for other coding agents (Codex, Cursor, ...)")
     am.add_argument("--dir", default=".", help="project directory (default: here)")
     am.add_argument("--print", action="store_true", help="print the section instead of writing a file")
+    ug = add("upgrade", upgrade.cmd_upgrade, "update this CLI to the newest release, with the tool that installed it "
+             "(uv, pipx or pip); runs even when this version is no longer supported", aliases=("self-update",))
+    ug.add_argument("--check", action="store_true", help="only say whether a newer release is out")
+    ug.add_argument("--version", metavar="X.Y.Z", help="install this release instead (to go back to one, say)")
     return p
 
 
@@ -2041,12 +2045,13 @@ def _print_sign_in(args, argv):
 def main(argv=None, questions=True):
     import re
     argv = sys.argv[1:] if argv is None else list(argv)
-    # Below the platform's minimum, no command runs, even ones that never call it (help, --version).
+    # Below the platform's minimum, no command runs, even ones that never call it, but `upgrade` (which
+    # fixes it) and help and --version (which say to run it): versioncheck.exempt.
     # The design gate is the exception: it runs as a git or agent hook and lets a push through when it
     # can't decide, and its own calls to the platform get the 426 (versioncheck.py).
     if [a for a in argv if not a.startswith("-")][:2] != ["design", "gate"]:
         try:
-            versioncheck.check()
+            versioncheck.check(argv=argv)
         except UpgradeRequired as e:
             print(e, file=sys.stderr)
             return 1

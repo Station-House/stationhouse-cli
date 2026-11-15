@@ -7,7 +7,7 @@ import pytest
 
 from stationhouse_cli import __version__, cli, config, versioncheck
 
-UPGRADE = f"This version ({__version__}) is no longer supported. Update: {config.UPGRADE_COMMAND}"
+UPGRADE = f"This version ({__version__}) is no longer supported. Run `stationhouse upgrade` (or: {config.UPGRADE_COMMAND})"
 BLOCKED = (426, {"error": "too old", "minimum": "99.0.0", "latest": "99.0.0"})
 
 
@@ -62,8 +62,9 @@ def test_a_426_ends_the_chat_rather_than_answering(signed_in, api, capsys):
 # --- the cached check before every command ---
 
 def test_below_the_minimum_even_local_commands_are_blocked(checking, api, capsys):
+    # `upgrade`, help and --version are the exceptions (test_upgrade.py).
     api.routes[("GET", "/api/cli/version")] = (200, {"minimum": "99.0.0", "latest": "99.0.0"})
-    for argv in (("--version",), ("help",), ("design", "guide")):
+    for argv in (("design", "guide"), ("project", "use", "marin"), ("agents-md", "--print")):
         code, out, err = run(capsys, *argv)
         assert (code, out, err.strip()) == (1, "", UPGRADE), argv
     # Asked once; the next commands used the cached answer.
@@ -112,14 +113,14 @@ def test_offline_fails_open(checking, monkeypatch, capsys):
 
 def test_a_failed_ask_waits_ten_minutes_before_asking_again(checking, api, monkeypatch):
     asks = []
-    monkeypatch.setattr(versioncheck, "_ask", lambda: asks.append(1))  # None: the ask failed
+    monkeypatch.setattr(versioncheck, "ask", lambda: asks.append(1))  # None: the ask failed
     versioncheck.check(now=1_000_000)
     versioncheck.check(now=1_000_000 + 599)  # offline help/--version don't each wait the timeout
     assert len(asks) == 1
     versioncheck.check(now=1_000_000 + 600)
     assert len(asks) == 2
     # Once an ask works, the hour applies again and the failure is forgotten.
-    monkeypatch.setattr(versioncheck, "_ask", lambda: asks.append(1) or {"minimum": None, "latest": __version__})
+    monkeypatch.setattr(versioncheck, "ask", lambda: asks.append(1) or {"minimum": None, "latest": __version__})
     versioncheck.check(now=1_000_000 + 1200)
     assert "failed_at" not in cached() and len(asks) == 3
     versioncheck.check(now=1_000_000 + 1200 + 3599)
@@ -159,7 +160,7 @@ def test_a_newer_version_is_mentioned_once_a_day(checking, api):
     versioncheck.check(now=1_000_000, out=out)
     versioncheck.check(now=1_000_000 + 4000, out=out)  # asked again, not told again
     assert out.getvalue().count("stationhouse-cli 99.0.0 is out") == 1
-    assert config.UPGRADE_COMMAND in out.getvalue()
+    assert "Run `stationhouse upgrade`" in out.getvalue() and config.UPGRADE_COMMAND in out.getvalue()
     versioncheck.check(now=1_000_000 + 86_400, out=out)
     assert out.getvalue().count("stationhouse-cli 99.0.0 is out") == 2
 

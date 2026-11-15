@@ -32,7 +32,9 @@ class UpgradeRequired(ApiError):
 
 
 def upgrade_message() -> str:
-    return f"This version ({__version__}) is no longer supported. Update: {config.UPGRADE_COMMAND}"
+    """What a CLI below the platform's minimum says: the command that fixes it, then the installer's
+    own line for a CLI that can't run it (cmd_upgrade prints that too when it can't tell the installer)."""
+    return f"This version ({__version__}) is no longer supported. Run `stationhouse upgrade` (or: {config.UPGRADE_COMMAND})"
 
 
 class SignInRequired(ApiError):

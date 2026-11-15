@@ -1,5 +1,5 @@
 {
-  "version": "0.3.1",
+  "version": "0.3.2",
   "commands": {
     "about": [
       "diff",
@@ -82,6 +82,7 @@
     "prs": [],
     "release": [],
     "research": [],
+    "self-update": [],
     "skills-install": [],
     "sources": [],
     "task": [
@@ -123,6 +124,7 @@
       "post",
       "show"
     ],
+    "upgrade": [],
     "who": [],
     "whoami": [],
     "work": []

@@ -61,6 +61,20 @@ stationhouse research         # Our Research: the week's research write-ups, by 
 
 `sth` is a short alias. Add `--json` to any command for machine-readable output.
 
+### Updating
+
+```bash
+stationhouse upgrade                   # the newest release, with the tool that installed it (alias: self-update)
+stationhouse upgrade --check           # only say whether a newer one is out
+stationhouse upgrade --version 0.3.0   # a given release, to go back to one, say
+```
+
+It reinstalls from this repository's `vX.Y.Z` release tag with `uv tool`, `pipx`, or `pip` in the
+virtualenv it runs from, whichever installed it, and prints the old and new versions. When it can't
+tell (a system Python, a development checkout), it prints the command to run instead; it never uses
+sudo. It runs even when your version is no longer supported. If you use the Claude Code plugin,
+refresh it afterwards with `/plugin marketplace update stationhouse-cli`.
+
 The first time you run it in a terminal, a train pulls through to welcome you (once; `stationhouse
 train` brings it back). It never runs for scripts, coding agents or `--json`, and
 `STATIONHOUSE_NO_TRAIN=1` turns it off.
@@ -343,11 +357,12 @@ Setting it checks the newest `vX.Y.Z` tag here first (`git ls-remote`) and refus
 it, or when there's no tag or it can't be read, so nobody is blocked with nothing to update to;
 `--force` sets it anyway. The platform separately refuses one above the version on its main.
 
-Below it, every command stops with `This version (…) is no longer supported. Update: uv tool install
---force git+https://github.com/Station-House/stationhouse-cli` and exits 1: the platform answers the
-CLI's calls with 426, and before each command (but `design gate`, a hook that fails open) the CLI
-asks `GET /api/cli/version`, at most once an hour, so commands that never call the platform stop too.
-Offline, it carries on, and doesn't ask again for ten minutes. When a newer CLI is out it says so on stderr, at most once a day.
+Below it, every command stops with ``This version (…) is no longer supported. Run `stationhouse
+upgrade` (or: uv tool install --force git+https://github.com/Station-House/stationhouse-cli)`` and exits 1:
+the platform answers the CLI's calls with 426, and before each command (but `design gate`, a hook
+that fails open) the CLI asks `GET /api/cli/version`, at most once an hour, so commands that never
+call the platform stop too. `upgrade` still runs, since it's the fix, and so do help and `--version`,
+which print that line on stderr first. Offline, it carries on, and doesn't ask again for ten minutes. When a newer CLI is out it says so on stderr, at most once a day.
 `STATIONHOUSE_NO_VERSION_CHECK=1` skips that check (the tests set it). CLIs before 0.2.0 send no
 version and aren't blocked. Setting it on production is a production database write: get Raveesh's
 OK each time.
