@@ -147,6 +147,17 @@ def test_discussions_hf_github_and_open_a_row(signed_in, api, capsys):
     assert code == 1 and f"stationhouse discussions {CSA} --hf-github" in err
 
 
+def test_discussions_hf_github_rows_with_a_synced_post_open_here(signed_in, api, capsys):
+    data = {**DISCUSSIONS, "linked": [{**DISCUSSIONS["linked"][0], "postId": "5e5e"}, *DISCUSSIONS["linked"][1:]]}
+    api.routes[("GET", f"/api/v1/discussions/{CSA}")] = (200, data)
+    code, out, _ = run(capsys, "discussions", CSA, "--hf-github")
+    assert code == 0
+    lines = out.splitlines()
+    assert any(line.startswith("   1  Do judges disagree on borderline probes?") and line.endswith("  [here]") for line in lines)
+    assert "[here]: synced with Stationhouse, read it with stationhouse discussions show 5e5e" in lines
+    assert lines[-2:] == ["The rest live on Hugging Face and GitHub: reply there.", f"stationhouse open 1  →  {data['linked'][0]['url']}"]
+
+
 def test_the_plain_list_points_at_them(signed_in, api, capsys):
     lines = []
     discussions.render_list(DISCUSSIONS, out=lines.append)

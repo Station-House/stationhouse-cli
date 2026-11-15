@@ -90,6 +90,48 @@ def test_show_prints_the_post_its_comments_and_how_to_reply(signed_in, api, caps
     assert 'Reply: stationhouse discussions reply 7f3a --body "…"' in out
 
 
+def test_show_a_synced_post_keeps_its_thread_apart_from_what_was_said_here(signed_in, api, capsys):
+    thread = "https://huggingface.co/datasets/Station-house/csa/discussions/44"
+    def c(cid, author, body, source="hf", deleted=False, edited=None):
+        return {"id": cid, "author": author, "at": "2026-11-08T11:00:00.000Z", "body": body, "deleted": deleted, "hidden": False,
+                "replies": [], "source": source, "remoteUrl": None if source == "stationhouse" else f"{thread}#{cid}", "editedAt": edited}
+    api.routes[("GET", "/api/v1/posts/5e5e")] = (200, {
+        "post": {**row("5e5e", "Do judges disagree on borderline probes?", "Hugging Face & GitHub", author="ada-hf"), "scope": "csa",
+                 "body": "Opened there.", "publishedAt": "2026-11-08T10:00:00.000Z", "reactions": []},
+        "comments": [c("e1", "ada-hf", "First there."), c("e2", "bo-hf", None, deleted=True),
+                     c("e3", "ada-hf", "Fixed typo.", edited="2026-11-09T10:00:00.000Z"),
+                     c("c9", "cy-member", "Said here.", source="stationhouse")],
+        "canComment": True,
+        "synced": {"source": "hf", "label": "Hugging Face #44", "url": thread, "gone": None}})
+    code, out, _ = run(capsys, "discussions", "show", "5e5e")
+    assert code == 0
+    lines = out.splitlines()
+    assert f"Opened on Hugging Face #44  →  {thread}" in lines
+    block = lines.index("Hugging Face #44 · synced")
+    here = lines.index("On Stationhouse · not posted to Hugging Face")
+    assert block < here
+    assert any(line.startswith("— ada-hf · ") and line.endswith("First there.") for line in lines[block:here])
+    assert any(line.startswith("— bo-hf · ") and line.endswith("(hidden on Hugging Face)") for line in lines[block:here])
+    assert any(line.endswith("Fixed typo. (edited on Hugging Face)") for line in lines[block:here])
+    assert any(line.startswith("— cy-member · ") and line.endswith("Said here.") for line in lines[here:])
+    assert 'Reply here (not on Hugging Face): stationhouse discussions reply 5e5e --body "…"' in out
+
+
+def test_show_a_synced_post_whose_issue_is_gone(signed_in, api, capsys):
+    issue = "https://github.com/Station-House/csa/issues/31"
+    api.routes[("GET", "/api/v1/posts/6f6f")] = (200, {
+        "post": {**row("6f6f", "Probe loader fails", "Hugging Face & GitHub", status="archived"), "scope": "csa", "body": "",
+                 "publishedAt": None, "reactions": []},
+        "comments": [{"id": "g1", "author": "octo", "at": "2026-11-08T11:00:00.000Z", "body": None, "deleted": True, "hidden": False,
+                      "replies": [], "source": "github", "remoteUrl": f"{issue}#issuecomment-1", "editedAt": None}],
+        "canComment": False,
+        "synced": {"source": "github", "label": "GitHub issue #31", "url": issue, "gone": "deleted"}})
+    _, out, _ = run(capsys, "discussions", "show", "6f6f")
+    assert "Deleted on GitHub: this post is archived here, with what it said." in out
+    assert "(deleted on GitHub)" in out
+    assert "On Stationhouse" not in out and "Reply" not in out
+
+
 def test_show_says_a_post_is_hidden_or_archived(signed_in, api, capsys):
     api.routes[("GET", "/api/v1/posts/aa11")] = (200, {
         "post": {**row("aa11", "Old thread", status="archived", hidden=True), "scope": "community", "body": "",

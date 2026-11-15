@@ -195,8 +195,14 @@ def render_discussions(data: dict, day, out=print) -> None:
         name = t["title"] if len(t["title"]) <= 48 else t["title"][:47] + "…"
         replies = _plural(t.get("comments", 0), "reply", "replies")
         closed = "  [closed]" if t.get("status") == "closed" else ""
-        out(f"  {n:>2}  {name:<{width}}  {short_source(t):<{where}}  {replies:>10}  {day(t.get('lastActivityAt'))}{closed}")
+        here = "  [here]" if t.get("postId") else ""
+        out(f"  {n:>2}  {name:<{width}}  {short_source(t):<{where}}  {replies:>10}  {day(t.get('lastActivityAt'))}{closed}{here}")
     out("")
-    out("These live on Hugging Face and GitHub: reply there.")
+    # A two-way repo's thread has its synced post here (STA-425): it reads like any post.
+    synced = [t for t in rows if t.get("postId")]
+    if synced:
+        out(f"[here]: synced with Stationhouse, read it with stationhouse discussions show {synced[0]['postId']}")
+    if len(synced) < len(rows):
+        out(f"{'The rest live' if synced else 'These live'} on Hugging Face and GitHub: reply there.")
     out(f"stationhouse open 1  →  {rows[0]['url']}")
     remember("discussions", data.get("scope", ""), [{"n": n, "num": t["num"], "url": t["url"]} for n, t in enumerate(rows, 1)])

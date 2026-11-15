@@ -107,13 +107,25 @@ def _reactions(reactions: list) -> str:
     return "  ".join(f"{r['emoji']} {r['count']}" for r in reactions)
 
 
+FORGES = {"hf": "Hugging Face", "github": "GitHub"}
+
+
+def _from_forge(c: dict) -> str | None:
+    """The forge a synced post's comment was copied from (STA-425); None for one written here."""
+    return FORGES.get(c.get("source") or "stationhouse")
+
+
 def _render_comments(comments: list, out) -> None:
     def line(c, indent):
         text = " ".join((c.get("body") or "").split())
+        forge = _from_forge(c)
         if c.get("deleted"):
-            text = "(deleted)"
+            # Taken away there: GitHub deletes a comment, the Hub only hides it.
+            text = ("(deleted on GitHub)" if c["source"] == "github" else "(hidden on Hugging Face)") if forge else "(deleted)"
         elif c.get("body") is None:
             text = "(hidden by a lead)"
+        elif forge and c.get("editedAt"):
+            text += f" (edited on {forge})"
         out(f"{indent}— {c['author']} · {day(c['at'])}: {text}")
     for c in comments:
         line(c, "")
@@ -128,19 +140,40 @@ def render_post(data: dict, out=print) -> None:
     if p.get("reactions"):
         meta.append(_reactions(p["reactions"]))
     out(" · ".join(m for m in meta if m))
+    synced = data.get("synced")
+    forge = FORGES.get(synced["source"]) if synced else None
+    if synced:
+        # A synced post (STA-425): its thread on Hugging Face or GitHub, copied here.
+        out(f"Opened on {synced['label']}  →  {synced['url']}")
+    if synced and synced.get("gone"):
+        gone = "Moved to another repository on GitHub" if synced["gone"] == "transferred" else f"Deleted on {forge}"
+        out(f"{gone}: this post is archived here, with what it said.")
+    elif p.get("status") == "archived":
+        out("Archived: it takes no new comments. Archived posts are listed with --all.")
     if p.get("hidden"):
         out("Hidden by a lead: it's out of the list and search. Only its author and the leads see it.")
-    if p.get("status") == "archived":
-        out("Archived: it takes no new comments. Archived posts are listed with --all.")
     if p.get("status") == "draft":
         out("Draft: only you (and the leads) see it until you publish it on the site.")
     if p.get("body"):
         out(p["body"].rstrip())
-    if data.get("comments"):
+    comments = data.get("comments") or []
+    if synced:
+        # What was said there, then what was said here, which stays here.
+        there = [c for c in comments if _from_forge(c)]
+        here = [c for c in comments if not _from_forge(c)]
         out("")
-        _render_comments(data["comments"], out)
+        out(f"{synced['label']} · synced")
+        _render_comments(there, out)
+        if here:
+            out("")
+            out(f"On Stationhouse · not posted to {forge}")
+            _render_comments(here, out)
+    elif comments:
+        out("")
+        _render_comments(comments, out)
     if data.get("canComment"):
-        out(f'Reply: stationhouse discussions reply {p["id"]} --body "…"')
+        where = f" here (not on {forge})" if synced else ""
+        out(f'Reply{where}: stationhouse discussions reply {p["id"]} --body "…"')
     out(p["url"])
 
 
