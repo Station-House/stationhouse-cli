@@ -583,6 +583,14 @@ def test_assign_by_number_adds_an_owner(marin, capsys):
     assert marin.calls[-1]["body"] == {"who": "@eve-tester"}
 
 
+def test_assign_to_a_member_who_hasnt_finished_setting_up_says_so(marin, capsys):
+    # D10: the server names why (review-625 P1), and the CLI prints it as it comes.
+    refused = "That member hasn't finished setting up yet, so they can't own its tasks."
+    marin.routes[("POST", f"{BASE}/tasks/2/owners")] = (400, {"error": refused})
+    code, out, err = run(capsys, "assign", "2", "@eve-tester")
+    assert code == 1 and out == "" and err == f"error: {refused}\n"
+
+
 def test_assign_on_a_catalog_task_is_the_admins_as_before(signed_in, api, capsys):
     api.routes[("POST", "/api/v1/projects/conspiracybench/tasks/add-question/assign")] = (200, {})
     _, out, _ = run(capsys, "assign", "add-question", "@ada")
