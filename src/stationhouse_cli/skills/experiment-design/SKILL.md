@@ -48,6 +48,11 @@ metric artifact, arms that differed in more than one thing, an effect smaller th
    - **Between rounds, write their decisions into the design in their words.** Don't add content of
      your own; if an answer commits to a number, an arm or a threshold, that's what goes in the file.
      If nothing should change, ask them why and pass that as `no_change_reason`.
+   - **Have the experiment's files in place before each round** (the request, configs, scripts), next
+     to the design or committed on the branch. The reviewer reads them with the design and asks where
+     they disagree, so keep them matching what the design says. Tell the contributor which files went
+     (the round's output lists them). Only if they ask to send the design alone: `include_files: false`,
+     or `--no-files`.
    - Round 1 asks for a predicted result (a value and an 80% interval): the prediction has to come
      from the contributor.
    - After `design_finalize`, show them the closing review word for word (each stage, open

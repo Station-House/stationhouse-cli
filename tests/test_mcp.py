@@ -108,6 +108,31 @@ def test_a_declined_form_stops_the_agent_without_answers(wizard_api, design_file
     assert not any(c["path"].endswith("/answers") for c in wizard_api.calls)
 
 
+@pytest.fixture
+def checkout(tmp_path):
+    """A git checkout with a design and a request file next to it, nothing committed yet."""
+    import subprocess
+    root = tmp_path / "repo"
+    (root / "requests" / "x").mkdir(parents=True)
+    subprocess.run(["git", "-C", str(root), "init", "-q"], check=True)
+    (root / "requests" / "x" / "DESIGN.md").write_text("# Claim\nx\n")
+    (root / "requests" / "x" / "request.yaml").write_text("seeds: 1\n")
+    return root
+
+
+def test_the_round_takes_the_branchs_files_and_tells_the_agent_which(wizard_api, checkout):
+    args = {"draft_path": "requests/x/DESIGN.md", "cwd": str(checkout), "session_id": SID}
+    _, out = call("design_submit_round", args)
+    sent = next(c for c in wizard_api.calls if c["path"].endswith("/rounds"))["body"]
+    assert [(f["path"], f["text"]) for f in sent["files"]] == [("requests/x/request.yaml", "seeds: 1\n")]
+    assert "requests/x/request.yaml" in out["filesRead"]
+
+
+def test_the_round_sends_the_design_alone_when_asked(wizard_api, checkout):
+    _, out = call("design_submit_round", {"draft_path": "requests/x/DESIGN.md", "cwd": str(checkout), "session_id": SID, "include_files": False})
+    assert "files" not in next(c for c in wizard_api.calls if c["path"].endswith("/rounds"))["body"] and "filesRead" not in out
+
+
 def test_without_forms_the_agent_is_told_to_stop_and_send_the_link(wizard_api, design_file):
     _, out = call("design_submit_round", {"draft_path": str(design_file), "session_id": SID})
     assert out["answerUrl"] == SESSION["answerUrl"]

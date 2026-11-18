@@ -44,6 +44,15 @@ def _read(path: str, cwd: str | None) -> str:
     return p.read_text(encoding="utf-8")
 
 
+def _files(path: str, cwd: str | None, include: bool) -> list[dict]:
+    """The PR's files to send with the design at `path`; [] when turned off or outside a git checkout."""
+    root = wizard.repo_root(cwd or os.getcwd())
+    if not (root and include and wizard.files_wanted()):
+        return []
+    p = Path(path).expanduser()
+    return wizard.pr_files(root, p if p.is_absolute() else Path(cwd or os.getcwd()) / p)
+
+
 def _answer_form(round_: dict):
     """A pydantic model with one text field per question: the form the contributor fills in."""
     from pydantic import Field, create_model
@@ -83,9 +92,12 @@ def build_server():
     @server.tool(description="Submit the design file for the next review round. The contributor gets 3-5 questions "
                              "in a form and answers them; you get their answers back. Revise the design with them "
                              "before the next round (an unchanged design needs no_change_reason, in the contributor's "
-                             "words). Three rounds, then design_finalize.")
+                             "words). Three rounds, then design_finalize. The reviewer also reads the files this "
+                             "branch changes (request files, configs, scripts; keys removed, data files as first lines "
+                             "only) and checks them against the design, so have them in place first. Set include_files "
+                             "to false only if the contributor asks to send the design alone.")
     async def design_submit_round(draft_path: str, ctx: Context, cwd: str | None = None, session_id: str | None = None,
-                                  no_change_reason: str | None = None) -> dict:
+                                  no_change_reason: str | None = None, include_files: bool = True) -> dict:
         text = _read(draft_path, cwd)
         if not session_id:
             _, repo, branch = _session_for(cwd)
@@ -98,9 +110,10 @@ def build_server():
         if root:
             from . import gate
             files = gate.changed_files(root)
+        sent = _files(draft_path, cwd, include_files)
         try:
             res = wizard.ask_round(session_id, text, wizard.results_summary(files, root) if root else "",
-                                   wizard.format_check(text), no_change_reason)
+                                   wizard.format_check(text), no_change_reason, sent)
         except ApiError as e:
             if e.body.get("code") == "unchanged":
                 return {"status": "unchanged", "instructions": str(e) + " Ask the contributor what they want to change "
@@ -108,8 +121,9 @@ def build_server():
                         "set to their reason, in their words."}
             raise
         round_, session = res["round"], res["session"]
+        read = {"filesRead": wizard.files_summary(sent)} if sent else {}
         no_form = {"round": round_, "answerUrl": session["answerUrl"], "instructions": STOP,
-                   "questions": wizard.describe_round(round_)}
+                   "questions": wizard.describe_round(round_), **read}
         caps = ctx.client_capabilities
         if not (caps and caps.elicitation):
             return no_form
@@ -144,6 +158,7 @@ def build_server():
                     "blocking": round_["feedback"]["blocking"],
                     "contributorAnswers": answers,
                     "roundsAnswered": saved["session"]["roundsAnswered"],
+                    **read,
                     "next": ("All three rounds are answered. Update the design file with the contributor, then call "
                              "design_finalize with it." if done else
                              "Revise the design file WITH the contributor using their answers, then call "
@@ -167,7 +182,8 @@ def build_server():
     @server.tool(description="After all three rounds are answered: record the design as it will be pushed, get the "
                              "closing review (show it to the contributor) and the Design-Session line for the PR "
                              "description. Call again after a small edit; a changed experiment needs a new review.")
-    async def design_finalize(draft_path: str, ctx: Context, cwd: str | None = None, session_id: str | None = None) -> dict:
+    async def design_finalize(draft_path: str, ctx: Context, cwd: str | None = None, session_id: str | None = None,
+                              include_files: bool = True) -> dict:
         text = _read(draft_path, cwd)
         if not session_id:
             _, repo, branch = _session_for(cwd)
@@ -176,7 +192,7 @@ def build_server():
                 raise ApiError("No design review for this branch. Call design_start first.")
             session_id = session["id"]
         try:
-            res = wizard.finalize(session_id, text)
+            res = wizard.finalize(session_id, text, _files(draft_path, cwd, include_files))
         except ApiError as e:
             if e.body.get("code") == "changedTooMuch":
                 return {"status": "changedTooMuch", "instructions": str(e) + " Tell the contributor; call design_start "

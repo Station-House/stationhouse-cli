@@ -1255,17 +1255,27 @@ def cmd_design_start(args):
         f"Next: stationhouse design round <design file>"))
 
 
+def _design_files(args, root, design_path):
+    """The PR's files to send with the design, or [] with --no-files, STATIONHOUSE_DESIGN_FILES=0 or no git checkout."""
+    if not root or getattr(args, "no_files", False) or not wizard.files_wanted():
+        return []
+    return wizard.pr_files(root, Path(design_path) if design_path else None)
+
+
 def cmd_design_round(args):
     path, text = _read_design(args.path)
     sid = _session_id(args)
     root = wizard.repo_root(".")
     files = gate.changed_files(root) if root else []
+    sent = _design_files(args, root, path)
     res = wizard.ask_round(sid, text, wizard.results_summary(files, root) if root else "", wizard.format_check(text),
-                           getattr(args, "no_change_reason", None))
+                           getattr(args, "no_change_reason", None), sent)
     round_, session = res["round"], res["session"]
 
     def human(_d):
         print(wizard.describe_round(round_))
+        if sent:
+            print("\n" + wizard.files_summary(sent))
         print(f"\nAnswer these yourself at {session['answerUrl']}\nor in a separate terminal: stationhouse design answer")
         print("\n(Coding agents: STOP here. Show the contributor these questions word for word; don't answer them.)")
     _emit(args, {"session": session, "round": round_}, human)
@@ -1337,7 +1347,7 @@ def cmd_design_status(args):
 
 def cmd_design_finalize(args):
     path, text = _read_design(args.path)
-    res = wizard.finalize(_session_id(args), text)
+    res = wizard.finalize(_session_id(args), text, _design_files(args, wizard.repo_root("."), path))
 
     def human(d):
         v = d.get("verdict")
@@ -1867,11 +1877,14 @@ def build_parser():
 
     st = wiz("start", cmd_design_start, "Experimentation Wizard: start the three-round design review before an experiment PR")
     st.add_argument("title", nargs="+")
-    wiz("round", cmd_design_round, "submit the design for the next review round (the contributor answers it)",
-        path=True).add_argument("--no-change-reason", help="why the design stays as it was after the last round's answers")
+    no_files = "send the design alone, without the files this branch changes"
+    rd = wiz("round", cmd_design_round, "submit the design for the next review round (the contributor answers it)", path=True)
+    rd.add_argument("--no-change-reason", help="why the design stays as it was after the last round's answers")
+    rd.add_argument("--no-files", action="store_true", help=no_files)
     wiz("answer", cmd_design_answer, "answer the waiting round yourself, in a terminal")
     wiz("status", cmd_design_status, "the review's rounds and answers")
-    wiz("finalize", cmd_design_finalize, "after round 3: record the design and get the Design-Session line for the PR", path=True)
+    wiz("finalize", cmd_design_finalize, "after round 3: record the design and get the Design-Session line for the PR",
+        path=True).add_argument("--no-files", action="store_true", help=no_files)
     at = wiz("attach-trace", cmd_design_attach_trace, "optional: share this session's agent transcript (redacted; asks first)")
     at.add_argument("--file", help="the transcript (default: the newest Claude Code/Codex log that mentions the session)")
     g = add("gate", cmd_design_gate, "is this push an experiment, and was its design reviewed? (exit 2 = blocked)", under=dsub)

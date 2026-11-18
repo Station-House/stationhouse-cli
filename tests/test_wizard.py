@@ -339,3 +339,73 @@ def test_find_log_picks_the_session_that_mentions_the_review(tmp_path, monkeypat
     (logs / "a.jsonl").write_text('{"x": "nothing"}\n')
     (logs / "b.jsonl").write_text(json.dumps({"x": SID}) + "\n")
     assert traces.find_log(SID, work) == (logs / "b.jsonl", "claude-code")
+
+
+# --- the PR's files -------------------------------------------------------------------------------
+
+@pytest.fixture
+def request_files(repo):
+    """The branch's request folder with a committed YAML, an uncommitted script, data, a key file and a changed README."""
+    folder = repo / "requests" / "L40-N1-001"
+    (folder / "request.yaml").write_text("neuron: L40-N1\nprompts: 10\nseeds: 1\n")
+    git(repo, "add", ".")
+    git(repo, "commit", "-qm", "yaml")
+    (folder / "run.py").write_text("SEEDS = 1\nTOKEN = 'hf_" + "a" * 30 + "'\n")
+    (folder / "rows.jsonl").write_text("".join(json.dumps({"i": i}) + "\n" for i in range(50)))
+    (folder / ".env").write_text("HF_TOKEN=abc\n")
+    (folder / "weights.npy").write_bytes(b"\0\1\2")
+    (repo / "README.md").write_text("hunt\nmore\n")
+    (repo / "scratch.txt").write_text("notes to self\n")
+    return folder
+
+
+def test_pr_files_sends_what_the_branch_changes_and_keeps_keys_and_scratch_work_out(repo, request_files):
+    files = {f["path"]: f for f in wizard.pr_files(repo, request_files / "DESIGN.md")}
+    # The design goes up as the draft; untracked files outside its folder may never be meant for the PR.
+    assert "requests/L40-N1-001/DESIGN.md" not in files and "scratch.txt" not in files
+    assert files["requests/L40-N1-001/request.yaml"] == {
+        "path": "requests/L40-N1-001/request.yaml", "status": "added", "kind": "full", "text": "neuron: L40-N1\nprompts: 10\nseeds: 1\n", "note": None}
+    run = files["requests/L40-N1-001/run.py"]
+    assert "SEEDS = 1" in run["text"] and "hf_" not in run["text"] and "[REDACTED]" in run["text"]
+    rows = files["requests/L40-N1-001/rows.jsonl"]
+    assert rows["kind"] == "head" and rows["text"].count("\n") == wizard.HEAD_LINES - 1 and rows["note"] == "first 20 lines"
+    assert files["requests/L40-N1-001/.env"]["text"] == "" and "keys" in files["requests/L40-N1-001/.env"]["note"]
+    assert files["requests/L40-N1-001/weights.npy"]["text"] == ""
+    readme = files["README.md"]
+    assert readme["status"] == "modified" and readme["kind"] == "diff" and "+more" in readme["text"]
+
+
+def test_pr_files_sends_the_request_first_and_stops_at_the_size_limit(repo, request_files, monkeypatch):
+    order = [f["path"] for f in wizard.pr_files(repo, request_files / "DESIGN.md")]
+    assert order.index("requests/L40-N1-001/request.yaml") < order.index("requests/L40-N1-001/run.py") < order.index("README.md")
+    monkeypatch.setattr(wizard, "MAX_FILES_CHARS", 40)
+    files = {f["path"]: f for f in wizard.pr_files(repo, request_files / "DESIGN.md")}
+    assert files["requests/L40-N1-001/request.yaml"]["text"]
+    assert files["requests/L40-N1-001/run.py"]["text"] == "" and "size limit" in files["requests/L40-N1-001/run.py"]["note"]
+
+
+def _round_route(hunt_api):
+    hunt_api.routes[("GET", "/api/v1/design/sessions")] = (200, {"sessions": [session(roundsAnswered=0, finalSha256=None, status="open")]})
+    rnd = {"n": 1, "focus": "The claim and the controls", "answers": None,
+           "feedback": {"summary": "s", "blocking": [], "questions": [{"id": "q1", "stage": "claim", "quote": "", "question": "Q?", "why": "w"}]}}
+    hunt_api.routes[("POST", f"/api/v1/design/sessions/{SID}/rounds")] = (200, {"session": session(), "round": rnd})
+
+
+def test_round_sends_the_files_and_says_which(repo, request_files, hunt_api, capsys, monkeypatch):
+    monkeypatch.chdir(repo)
+    _round_route(hunt_api)
+    assert cli.main(["design", "round", "requests/L40-N1-001/DESIGN.md"]) == 3
+    sent = hunt_api.calls[-1]["body"]["files"]
+    assert sent[0]["path"] == "requests/L40-N1-001/request.yaml" and "seeds: 1" in sent[0]["text"]
+    out = capsys.readouterr().out
+    assert "The reviewer also read 4 files" in out and "request.yaml" in out and "--no-files" in out
+
+
+@pytest.mark.parametrize("how", ["flag", "env"])
+def test_round_can_send_the_design_alone(repo, request_files, hunt_api, monkeypatch, how):
+    monkeypatch.chdir(repo)
+    _round_route(hunt_api)
+    if how == "env":
+        monkeypatch.setenv("STATIONHOUSE_DESIGN_FILES", "0")
+    assert cli.main(["design", "round", "requests/L40-N1-001/DESIGN.md", *(["--no-files"] if how == "flag" else [])]) == 3
+    assert "files" not in hunt_api.calls[-1]["body"]

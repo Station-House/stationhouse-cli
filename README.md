@@ -260,6 +260,13 @@ stationhouse design finalize experiment_requests/x/EXPERIMENT.md
 stationhouse design gate                                        # what the push gate will say (exit 2 = blocked)
 ```
 
+Each round also sends the reviewer the files your branch changes (the request, configs, scripts), so
+it can check them against the design: if the design says three seeds and the config says one, it
+asks. Keys and email addresses are removed first, files named like key stores (`.env`, `*.pem`) are
+never read, data files go as their first 20 lines, and new files outside the design's folder that
+git doesn't track yet stay out. The command prints which files went. To send the design alone, add
+`--no-files` or set `STATIONHOUSE_DESIGN_FILES=0`.
+
 **Optional:** `stationhouse design attach-trace` shares this session's agent transcript so we can study
 how experiments get designed. It shows you a redacted preview and asks first. Keys, tokens, emails
 and file contents are removed, and only Station House admins can read it.

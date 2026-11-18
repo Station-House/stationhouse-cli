@@ -7,6 +7,7 @@ The API contract is the platform's docs/design-wizard.md.
 """
 import hashlib
 import json
+import os
 import re
 import subprocess
 import time
@@ -225,6 +226,137 @@ def results_summary(files: list[str], root: Path, limit: int = 40) -> str:
     return "\n".join(lines)[:8000]
 
 
+# --- the PR's files -------------------------------------------------------------------------------
+
+# The reviewer reads what the pull request changes, and not only the design that describes it. The
+# platform applies the same limits again (src/lib/design-files.ts) and scrubs keys a second time.
+MAX_FILES = 200
+MAX_FILE_CHARS = 24_000
+MAX_FILES_CHARS = 120_000
+MAX_FILE_BYTES = 1_000_000
+HEAD_LINES = 20
+# Never sent, whatever is in them.
+SECRET_NAMES = re.compile(r"^(\.env.*|\.netrc|\.npmrc|\.pypirc|id_(rsa|dsa|ecdsa|ed25519).*|.*\.(pem|key|p12|pfx|keystore)|(credentials?|secrets?)(\..*)?)$", re.I)
+# Rows of data: the first lines say what a row looks like, and that is all the reviewer needs.
+DATA_FILES = re.compile(r"\.(jsonl|ndjson|csv|tsv)$", re.I)
+LISTED_ONLY = re.compile(r"\.(parquet|eval|arrow|npy|npz|pt|pth|bin|safetensors|pkl|pickle|zip|gz|tar|png|jpe?g|gif|webp|pdf|mp4|lock)$|(^|/)package-lock\.json$", re.I)
+_CONFIG = re.compile(r"\.(ya?ml|toml|json|cfg|ini)$", re.I)
+_CODE = re.compile(r"\.(py|sh|ts|tsx|js|mjs|r|jl|sql|ipynb)$", re.I)
+_PROSE = re.compile(r"\.(md|txt|rst)$", re.I)
+
+
+def files_wanted() -> bool:
+    """False when STATIONHOUSE_DESIGN_FILES is 0/off/no/false: send the design alone."""
+    return os.environ.get("STATIONHOUSE_DESIGN_FILES", "1").strip().lower() not in ("0", "off", "no", "false")
+
+
+def _rank(path: str) -> int:
+    """Lower is sent first: the request and its settings, then code, then prose, then data."""
+    if any(p.search(path) for p, _ in REQUESTS) or _CONFIG.search(path):
+        return 0
+    if _CODE.search(path):
+        return 1
+    if _PROSE.search(path):
+        return 2
+    return 3 if DATA_FILES.search(path) else 4
+
+
+def _changed(root: Path, design: Path | None, base: str | None) -> dict[str, str]:
+    """{path: added|modified|renamed} for what the PR will hold: commits since the base branch, changes
+    not committed yet, and new files git doesn't track yet when they sit in the design's folder or are a
+    request. Other untracked files stay out: they may be scratch work that was never meant to go up."""
+    from . import gate
+    base = base or gate.default_base(root)
+    start = git(root, "merge-base", base, "HEAD") if base else None
+    out = {}
+    names = git(root, "diff", "--name-status", "--diff-filter=AMR", "-M", start or "HEAD") or ""
+    for line in names.splitlines():
+        parts = line.split("\t")
+        if len(parts) >= 2:
+            out[parts[-1]] = {"A": "added", "R": "renamed"}.get(parts[0][:1], "modified")
+    folder = None
+    if design is not None:
+        try:
+            folder = design.resolve().parent.relative_to(root.resolve()).as_posix()
+        except ValueError:
+            folder = None
+    for f in (git(root, "ls-files", "--others", "--exclude-standard") or "").splitlines():
+        near_design = folder not in (None, ".") and f.startswith(folder + "/")
+        if f and f not in out and (near_design or any(p.search(f) for p, _ in REQUESTS)):
+            out[f] = "added"
+    return out
+
+
+def _file_entry(root: Path, path: str, status: str, start: str | None) -> dict:
+    from . import traces
+    entry = {"path": path, "status": status, "kind": "full", "text": "", "note": None}
+    full = root / path
+    name = path.rsplit("/", 1)[-1]
+    if SECRET_NAMES.match(name):
+        return {**entry, "note": "not sent: it may hold keys"}
+    if LISTED_ONLY.search(path):
+        return {**entry, "note": "not sent: not text"}
+    if not full.is_file():
+        return {**entry, "note": "not sent: not in this folder"}
+    try:
+        if DATA_FILES.search(path):
+            with full.open(encoding="utf-8", errors="replace") as fh:
+                rows = [line.rstrip("\n")[:500] for _, line in zip(range(HEAD_LINES), fh)]
+            entry.update(kind="head", text="\n".join(rows), note=f"first {len(rows)} lines")
+        elif full.stat().st_size > MAX_FILE_BYTES:
+            return {**entry, "note": "not sent: over 1 MB"}
+        elif status == "modified" and start:
+            entry.update(kind="diff", text=git(root, "diff", "-U10", start, "--", path) or "")
+        else:
+            raw = full.read_bytes()
+            if b"\0" in raw[:8000]:
+                return {**entry, "note": "not sent: not text"}
+            entry["text"] = raw.decode("utf-8", errors="replace")
+    except OSError:
+        return {**entry, "note": "not sent: couldn't read it"}
+    entry["text"], _ = traces.scrub(entry["text"])
+    if len(entry["text"]) > MAX_FILE_CHARS:
+        entry.update(text=entry["text"][:MAX_FILE_CHARS], note=f"cut at {MAX_FILE_CHARS} characters")
+    return entry
+
+
+def pr_files(root: Path, design: Path | None = None, base: str | None = None) -> list[dict]:
+    """The PR's files for the reviewer, the ones that matter most first: [{path, status, kind, text, note}].
+    kind is full (the file), diff (its changes against the base branch) or head (a data file's first
+    lines). A file with no text is only listed, with the reason in note. The design file itself is
+    left out, since it goes up as the draft. Keys, tokens and email addresses are replaced before
+    anything is sent, and files that are named like key stores are never read."""
+    from . import gate
+    base = base or gate.default_base(root)
+    start = git(root, "merge-base", base, "HEAD") if base else None
+    changed = _changed(root, design, base)
+    if design is not None:
+        try:
+            changed.pop(design.resolve().relative_to(root.resolve()).as_posix(), None)
+        except ValueError:
+            pass
+    files, spent = [], 0
+    for path in sorted(changed, key=lambda p: (_rank(p), p))[:MAX_FILES]:
+        entry = _file_entry(root, path, changed[path], start)
+        if entry["text"] and spent + len(entry["text"]) > MAX_FILES_CHARS:
+            entry.update(text="", note="not sent: the files together are over the size limit")
+        spent += len(entry["text"])
+        files.append(entry)
+    return files
+
+
+def files_summary(files: list[dict]) -> str:
+    """One line on what went to the reviewer, for the contributor."""
+    if not files:
+        return ""
+    sent = [f["path"] for f in files if f["text"]]
+    listed = len(files) - len(sent)
+    return (f"The reviewer also read {len(sent)} file{'' if len(sent) == 1 else 's'} from this change"
+            + (f" ({', '.join(sent[:8])}{', ...' if len(sent) > 8 else ''})" if sent else "")
+            + (f"; {listed} more {'was' if listed == 1 else 'were'} only listed by name" if listed else "")
+            + ". To send the design alone: --no-files, or STATIONHOUSE_DESIGN_FILES=0.")
+
+
 # --- sessions -----------------------------------------------------------------------------------
 
 def _state_path() -> Path:
@@ -278,10 +410,12 @@ def find(repo: str, branch: str | None) -> dict | None:
 
 
 def ask_round(session_id: str, draft: str, results: str = "", format_check: list[str] | None = None,
-              no_change_reason: str | None = None) -> dict:
+              no_change_reason: str | None = None, files: list[dict] | None = None) -> dict:
     body = {"draft": draft, "resultsSummary": results, "formatCheck": format_check or []}
     if no_change_reason:
         body["noChangeReason"] = no_change_reason
+    if files:
+        body["files"] = files
     return request("POST", f"/api/v1/design/sessions/{session_id}/rounds", body)
 
 
@@ -289,8 +423,8 @@ def answer(session_id: str, n: int, answers: dict, via: str) -> dict:
     return request("POST", f"/api/v1/design/sessions/{session_id}/answers", {"n": n, "answers": answers, "via": via})
 
 
-def finalize(session_id: str, draft: str) -> dict:
-    return request("POST", f"/api/v1/design/sessions/{session_id}/finalize", {"draft": draft})
+def finalize(session_id: str, draft: str, files: list[dict] | None = None) -> dict:
+    return request("POST", f"/api/v1/design/sessions/{session_id}/finalize", {"draft": draft, **({"files": files} if files else {})})
 
 
 def answer_problems(questions: list[dict], answers: dict) -> dict:
