@@ -7,7 +7,10 @@ from pathlib import Path
 USER_POOL_ID = "us-east-1_IVIvCXApg"
 CLIENT_ID = "79iirq0u3k2uuqhq3s2tph7ru3"
 REGION = "us-east-1"
-DEFAULT_API_URL = "https://app.station-house.net"
+DEFAULT_API_URL = "https://stationhouse.ai"
+# The default before the domain move (STA-157). The same platform, so a session it issued is carried
+# over to DEFAULT_API_URL when the CLI talks to the default (store.load_credentials).
+OLD_DEFAULT_API_URL = "https://app.station-house.net"
 # Every call to the platform says which CLI made it; the platform answers 426 to one below the
 # minimum it supports (src/lib/cli-version.ts). The CLI then says to run `stationhouse upgrade`
 # (upgrade.py), with this install line as the fallback.

@@ -16,7 +16,7 @@ ANSWER = {
         {"id": "experiment:e-1", "kind": "experiment", "projectId": "marin-neuron-atlas",
          "projectTitle": "Marin Neuron Atlas", "at": "2026-11-10T12:00:00.000Z",
          "hook": "Ablating one L12 neuron halves refusals while the logit lens shows nothing.",
-         "url": "https://app.station-house.net/marin-neuron-atlas/experiments/e-1"},
+         "url": "https://stationhouse.ai/marin-neuron-atlas/experiments/e-1"},
         {"id": "thread:github:Station-House/marin-neuron-hunt#7", "kind": "discussion", "projectId": "marin-neuron-atlas",
          "projectTitle": "Marin Neuron Atlas", "at": "2026-11-08T09:00:00.000Z",
          "hook": "Is neuron 4410 a date detector, or does it fire on any four-digit number?",
@@ -50,7 +50,7 @@ def test_prints_the_list_by_day_newest_first():
         "Yesterday\n"
         "  Marin Neuron Atlas · experiment\n"
         "    Ablating one L12 neuron halves refusals while the logit lens shows nothing.\n"
-        "    https://app.station-house.net/marin-neuron-atlas/experiments/e-1\n"
+        "    https://stationhouse.ai/marin-neuron-atlas/experiments/e-1\n"
         "\n"
         "Sun, Nov 8\n"
         "  Marin Neuron Atlas · discussion\n"

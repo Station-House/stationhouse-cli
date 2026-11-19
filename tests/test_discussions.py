@@ -9,7 +9,7 @@ CATEGORIES = [{"id": "t1", "name": "Ideas", "count": 1}, {"id": "t2", "name": "Q
 def row(pid, title, category="Ideas", **extra):
     return {"id": pid, "title": title, "category": category, "author": "ben-sample", "comments": 6,
             "lastActivityAt": "2026-11-08T10:00:00.000Z", "status": "published", "hidden": False,
-            "url": f"https://app.station-house.net/community/posts/{pid}", **extra}
+            "url": f"https://stationhouse.ai/community/posts/{pid}", **extra}
 
 
 def listing(**extra):
@@ -60,7 +60,7 @@ def test_new_publishes_under_the_category_and_says_who_hears(signed_in, api, cap
     code, out, _ = run(capsys, "discussions", "new", "community", "--category", "questions",
                        "--title", "Is there a shared GPU queue for small runs?", "--body-file", str(q))
     assert code == 0
-    assert out.splitlines() == ["Published in Community · Questions", "https://app.station-house.net/community/posts/9c21",
+    assert out.splitlines() == ["Published in Community · Questions", "https://stationhouse.ai/community/posts/9c21",
                                 "You follow this post. Replies reach your Inbox."]
     assert api.calls[0]["body"] == {"category": "questions", "title": "Is there a shared GPU queue for small runs?",
                                     "body": "A few tasks need an hour on one A100.", "draft": False}
@@ -68,9 +68,9 @@ def test_new_publishes_under_the_category_and_says_who_hears(signed_in, api, cap
 
 def test_new_before_onboarding_prints_where_to_finish(signed_in, api, capsys, monkeypatch):
     monkeypatch.setattr("sys.stdin", io.StringIO(""))
-    api.routes[("POST", "/api/v1/discussions/community")] = (403, {"error": "Finish setting up first: https://app.station-house.net/onboarding"})
+    api.routes[("POST", "/api/v1/discussions/community")] = (403, {"error": "Finish setting up first: https://stationhouse.ai/onboarding"})
     code, _, err = run(capsys, "discussions", "new", "community", "--title", "Hello")
-    assert code == 1 and "Finish setting up first: https://app.station-house.net/onboarding" in err
+    assert code == 1 and "Finish setting up first: https://stationhouse.ai/onboarding" in err
 
 
 def test_show_prints_the_post_its_comments_and_how_to_reply(signed_in, api, capsys):
@@ -194,22 +194,22 @@ def test_json_prints_what_the_platform_answered(signed_in, api, capsys):
 
 ANNOUNCEMENT = {"id": "a12", "title": "A new project opens Monday: Marin Neuron Atlas", "sentBy": "Ada Tester",
                 "sentAt": "2026-11-10T09:00:00.000Z", "comments": 0, "firstLine": "We're mapping…",
-                "url": "https://app.station-house.net/community/announcements/a12"}
+                "url": "https://stationhouse.ai/community/announcements/a12"}
 
 
 def test_announcements_list_show_latest_and_comment(signed_in, api, capsys):
     api.routes[("GET", "/api/v1/announcements")] = (200, {"announcements": [ANNOUNCEMENT]})
     api.routes[("GET", "/api/v1/announcements/latest")] = (200, {
         "announcement": {**ANNOUNCEMENT, "body": "We're mapping what individual neurons respond to.",
-                         "button": {"label": "Have a look", "url": "https://app.station-house.net/projects/marin"},
+                         "button": {"label": "Have a look", "url": "https://stationhouse.ai/projects/marin"},
                          "reactions": []}, "comments": [], "canComment": True})
     api.routes[("POST", "/api/v1/announcements/latest/comments")] = (200, {"announcement": {**ANNOUNCEMENT}, "comments": [], "canComment": True})
     _, out, _ = run(capsys, "announcements")
     assert "A new project opens Monday: Marin Neuron Atlas" in out and "Ada Tester" in out
     _, out, _ = run(capsys, "announcements", "show", "latest")
     assert out.splitlines()[0].startswith("Announcement · from Ada Tester · ")
-    assert "Have a look: https://app.station-house.net/projects/marin" in out
-    assert "Page: https://app.station-house.net/community/announcements/a12" in out
+    assert "Have a look: https://stationhouse.ai/projects/marin" in out
+    assert "Page: https://stationhouse.ai/community/announcements/a12" in out
     _, out, _ = run(capsys, "announcements", "comment", "--body", "Signed up.")
     assert out.splitlines() == ['Commented on "A new project opens Monday: Marin Neuron Atlas"',
                                 "You follow this announcement. Replies reach your Inbox."]

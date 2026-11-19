@@ -15,8 +15,8 @@ from stationhouse_cli import auth, cli, config
 from stationhouse_cli.store import load_credentials, save_credentials
 
 CODE = {"device_code": "dev-code-0123456789", "user_code": "WDJBMJHT",
-        "verification_uri": "https://app.station-house.net/device",
-        "verification_uri_complete": "https://app.station-house.net/device?user_code=WDJBMJHT",
+        "verification_uri": "https://stationhouse.ai/device",
+        "verification_uri_complete": "https://stationhouse.ai/device?user_code=WDJBMJHT",
         "expires_in": 600, "interval": 5}
 PENDING = (400, {"error": "authorization_pending", "error_description": "Authorization pending"})
 
@@ -183,6 +183,34 @@ def test_a_disabled_account_is_told_so(api):
         auth.current_credentials()
 
 
+MOVED = (410, {"error": "Stationhouse moved: set STATIONHOUSE_API_URL to https://stationhouse.ai, or unset it.",
+               "url": "https://stationhouse.ai"})
+
+
+def test_a_moved_host_says_where_on_refresh(api):
+    save_credentials(device_session(0))
+    api.routes[("GET", "/api/auth/token")] = MOVED
+    with pytest.raises(auth.AuthError, match="^Stationhouse moved: set STATIONHOUSE_API_URL"):
+        auth.current_credentials()
+
+
+def test_a_moved_host_says_where_on_login(api, sleeps, capsys):
+    api.routes[("POST", "/api/auth/device/code")] = MOVED
+    code, _, err = run(capsys, "login", "--no-browser")
+    assert code == 1 and "Stationhouse moved: set STATIONHOUSE_API_URL" in err and "answered 410" not in err
+    api.routes[("POST", "/api/auth/device/code")] = (200, device_code(api))
+    api.routes[("POST", "/api/auth/device/token")] = MOVED
+    code, _, err = run(capsys, "login", "--no-browser")
+    assert code == 1 and "Stationhouse moved" in err
+
+
+def test_a_410_without_a_message_still_names_the_status(api):
+    save_credentials(device_session(0))
+    api.routes[("GET", "/api/auth/token")] = (410, {})
+    with pytest.raises(auth.AuthError, match="answered 410"):
+        auth.current_credentials()
+
+
 def test_api_calls_carry_the_jwt_and_no_id_token(api, capsys):
     save_credentials(device_session(time.time() + 900))
     api.routes[("GET", "/api/v1/me")] = (200, {"hfUsername": "ada"})
@@ -224,17 +252,41 @@ def test_tells_the_platform_what_it_is_so_the_page_can_show_it(api, sleeps, caps
 
 # ---------------------------------------------------------------- the session stays with the platform that issued it
 
-PROD = "https://app.station-house.net"
+PROD = "https://stationhouse.ai"
 
 
 def test_a_session_from_another_platform_is_never_sent_to_this_one(api, capsys):
     # Signed in to prod, then STATIONHOUSE_API_URL points somewhere else (here the fake platform).
     save_credentials(device_session(time.time() + 10, api_url=PROD))
-    with pytest.raises(auth.AuthError, match=r"signed in to https://app\.station-house\.net.*stationhouse login"):
+    with pytest.raises(auth.AuthError, match=r"signed in to https://stationhouse\.ai.*stationhouse login"):
         auth.current_credentials()
     code, _, err = run(capsys, "whoami")
     assert code == 1 and "stationhouse login" in err
     assert api.calls == []  # neither the session (refresh) nor its JWT (the API call) went there
+
+
+def test_a_session_from_the_old_default_host_carries_over_to_stationhouse_ai(monkeypatch):
+    # The domain move (STA-157): a 0.3.0 sign-in recorded app.station-house.net. Updated to 0.4.0, the
+    # member stays signed in on the new default without a new login, and the file says so from then on.
+    monkeypatch.delenv("STATIONHOUSE_API_URL")
+    monkeypatch.setattr(urllib.request.OpenerDirector, "open", lambda *a, **k: pytest.fail("reached the network"))
+    save_credentials(device_session(time.time() + 900, api_url="https://app.station-house.net"))
+    assert config.api_url() == config.DEFAULT_API_URL == "https://stationhouse.ai"
+    assert auth.current_credentials()["api_url"] == "https://stationhouse.ai"
+    assert json.loads(config.credentials_path().read_text())["api_url"] == "https://stationhouse.ai"
+
+
+def test_a_session_from_the_old_default_host_stays_there_when_the_cli_is_pointed_there(monkeypatch):
+    monkeypatch.setenv("STATIONHOUSE_API_URL", "https://app.station-house.net")
+    save_credentials(device_session(time.time() + 900, api_url="https://app.station-house.net"))
+    assert load_credentials()["api_url"] == "https://app.station-house.net"
+
+
+def test_a_session_from_the_old_default_host_still_never_goes_anywhere_else(api, capsys):
+    save_credentials(device_session(time.time() + 900, api_url="https://app.station-house.net"))
+    with pytest.raises(auth.AuthError, match=r"signed in to https://app\.station-house\.net.*stationhouse login"):
+        auth.current_credentials()
+    assert api.calls == []
 
 
 def test_a_session_saved_without_its_platform_asks_for_a_new_login(api):
@@ -253,7 +305,7 @@ def test_logout_leaves_another_platforms_session_alone(api, capsys):
     assert api.calls == [] and load_credentials() is None
 
 
-@pytest.mark.parametrize("url", ["http://app.station-house.net", "http://192.168.1.20:8787"])
+@pytest.mark.parametrize("url", ["http://stationhouse.ai", "http://192.168.1.20:8787"])
 def test_plain_http_is_refused_except_on_localhost(url, monkeypatch, capsys, signed_in):
     monkeypatch.setenv("STATIONHOUSE_API_URL", url)
     monkeypatch.setattr(urllib.request.OpenerDirector, "open", lambda *a, **k: pytest.fail("sent a request over plain http"))
@@ -264,7 +316,7 @@ def test_plain_http_is_refused_except_on_localhost(url, monkeypatch, capsys, sig
 
 
 def test_https_and_localhost_are_platforms_tokens_may_go_to():
-    for url in ("https://app.station-house.net", "http://localhost:8788", "http://127.0.0.1:8788", "http://[::1]:8788"):
+    for url in ("https://stationhouse.ai", "http://localhost:8788", "http://127.0.0.1:8788", "http://[::1]:8788"):
         assert auth.secure_platform_url(url) == url
 
 
@@ -341,8 +393,8 @@ def test_opens_the_sign_in_page_when_it_is_on_the_platform(api, monkeypatch, cap
     assert opened == [f"{api.url}/device"] and "Careful" not in capsys.readouterr().err
 
 
-@pytest.mark.parametrize("page", ["https://evil.example/device", "http://app.station-house.net/device",
-                                  "https://app.station-house.net.evil.example/device"])
+@pytest.mark.parametrize("page", ["https://evil.example/device", "http://stationhouse.ai/device",
+                                  "https://stationhouse.ai.evil.example/device"])
 def test_never_opens_a_sign_in_page_elsewhere(page, monkeypatch, capsys):
     monkeypatch.setenv("STATIONHOUSE_API_URL", PROD)
     opened = opened_pages(monkeypatch)
@@ -385,8 +437,8 @@ def test_a_redirect_within_the_platform_is_still_followed(api, capsys):
     assert code == 0 and "ada@example.com" in out
 
 
-@pytest.mark.parametrize("to", ["http://app.station-house.net/api/auth/token",       # downgraded to http
-                                "https://app.station-house.net:8443/api/auth/token",  # another port
+@pytest.mark.parametrize("to", ["http://stationhouse.ai/api/auth/token",       # downgraded to http
+                                "https://stationhouse.ai:8443/api/auth/token",  # another port
                                 "https://evil.example/api/auth/token"])                # another host
 def test_only_same_scheme_host_and_port_redirects_are_followed(to, monkeypatch):
     monkeypatch.setenv("STATIONHOUSE_API_URL", PROD)

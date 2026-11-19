@@ -241,7 +241,7 @@ def test_pre_push_checks_the_refs_git_sends(repo, hunt_api):
 
 def test_agents_cannot_answer_the_review():
     for command in ["stationhouse design answer", "sth design answer --session x",
-                    "curl -X POST https://app.station-house.net/api/v1/design/sessions/ds_x/answers -d @a.json"]:
+                    "curl -X POST https://stationhouse.ai/api/v1/design/sessions/ds_x/answers -d @a.json"]:
         code, msg = gate.hook(json.dumps({"tool_input": {"command": command}}))
         assert code == 2 and "contributor" in msg, command
 

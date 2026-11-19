@@ -298,7 +298,7 @@ approve the sign-in link, or handle your sign-in code or password.
 with Google, GitHub or Hugging Face. `stationhouse login` signs you in the same way you sign in on
 the website:
 
-- It shows a code and the link `https://app.station-house.net/device`. Open the link in a browser
+- It shows a code and the link `https://stationhouse.ai/device`. Open the link in a browser
   where you're signed in to Station House and type the code in. The page shows when and from where
   the request came; if that's your terminal, approve it. The CLI never sees a code from your email or
   a password. Codes last 10 minutes. In a terminal with a browser the link opens by itself
@@ -320,7 +320,7 @@ the website:
 
 ## Status
 
-Live against `https://app.station-house.net`. The routes it calls are listed in `docs/API.md`; the
+Live against `https://stationhouse.ai`. The routes it calls are listed in `docs/API.md`; the
 tests run the CLI against a fake server.
 
 ## Development
@@ -371,9 +371,11 @@ that fails open) the CLI asks `GET /api/cli/version`, at most once an hour, so c
 call the platform stop too. `upgrade` still runs, since it's the fix, and so do help and `--version`,
 which print that line on stderr first. Offline, it carries on, and doesn't ask again for ten minutes. When a newer CLI is out it says so on stderr, at most once a day.
 `STATIONHOUSE_NO_VERSION_CHECK=1` skips that check (the tests set it). CLIs before 0.2.0 send no
-version and aren't blocked. Setting it on production is a production database write: get Raveesh's
+version header; the platform reads their version from the User-Agent instead. Setting it on production is a production database write: get Raveesh's
 OK each time.
 
-Set `STATIONHOUSE_API_URL` to point at another server (default `https://app.station-house.net`). It must be
+Set `STATIONHOUSE_API_URL` to point at another server (default `https://stationhouse.ai`). It must be
 https, except on localhost. A browser-approved sign-in only works with the server that issued it: after
-pointing at another one, run `stationhouse login` again.
+pointing at another one, run `stationhouse login` again. The one exception is the old default,
+`https://app.station-house.net` (before 0.4.0): it's the same platform, so a sign-in from it carries
+over to `https://stationhouse.ai` with no new login.

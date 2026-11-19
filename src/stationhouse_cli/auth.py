@@ -182,6 +182,8 @@ def _auth_call(method: str, path: str, body: dict | None = None, bearer: str | N
     if status == 426:  # below the platform's minimum CLI version: sign-in is blocked too
         from .client import UpgradeRequired  # client imports this module
         raise UpgradeRequired(out)
+    if status == 410 and isinstance(out.get("error"), str):  # this host is gone (app.station-house.net
+        raise AuthError(out["error"])  # since day 14): the platform says where Stationhouse went
     return status, out
 
 

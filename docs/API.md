@@ -2,7 +2,7 @@
 
 The CLI is a thin client. These routes live in the private `station-house-platform` repo
 (`src/app/api/v1/`, documented in its `docs/contributor-api.md`) and are deployed at
-`https://app.station-house.net`. Against an older server the CLI answers "doesn't support that yet"
+`https://stationhouse.ai`. Against an older server the CLI answers "doesn't support that yet"
 on a 404.
 
 ## Auth

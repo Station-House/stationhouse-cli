@@ -2,7 +2,7 @@ import json
 import os
 import tempfile
 
-from .config import config_dir, credentials_path, settings_path
+from .config import DEFAULT_API_URL, OLD_DEFAULT_API_URL, api_url, config_dir, credentials_path, settings_path
 
 
 def save_credentials(creds: dict) -> None:
@@ -28,7 +28,25 @@ def load_credentials() -> dict | None:
     except (FileNotFoundError, ValueError):
         return None
     required = ("email", "access_token", "id_token", "refresh_token", "expires_at")
-    return creds if isinstance(creds, dict) and all(k in creds for k in required) else None
+    if not (isinstance(creds, dict) and all(k in creds for k in required)):
+        return None
+    return _moved(creds)
+
+
+def _moved(creds: dict) -> dict:
+    """A session the old default host issued, as stationhouse.ai's (STA-157): the same platform at its
+    new address, so the member stays signed in across the update. Only when the CLI talks to the new
+    default; with STATIONHOUSE_API_URL set to anything else the session stays where it was issued
+    (auth._same_platform). Saved once, so the file says where it goes; if it can't be written, it's
+    carried over again on the next run."""
+    if creds.get("api_url") != OLD_DEFAULT_API_URL or api_url() != DEFAULT_API_URL:
+        return creds
+    creds = {**creds, "api_url": DEFAULT_API_URL}
+    try:
+        save_credentials(creds)
+    except OSError:
+        pass
+    return creds
 
 
 def load_settings() -> dict:
