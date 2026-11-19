@@ -1275,12 +1275,24 @@ def _design_files(args, root, design_path):
     return wizard.pr_files(root, Path(design_path) if design_path else None)
 
 
+def _auto_run(args, root, design_path):
+    """The auto-run estimate for this branch, or None (no checkout, files opted out, or any error)."""
+    if not root or not wizard.files_wanted():
+        return None
+    try:
+        repo = _repo_args(args)[0]
+    except ApiError:
+        return None
+    return wizard.auto_run_estimate(repo, root, Path(design_path) if design_path else None)
+
+
 def cmd_design_round(args):
     path, text = _read_design(args.path)
     sid = _session_id(args)
     root = wizard.repo_root(".")
     files = gate.changed_files(root) if root else []
     sent = _design_files(args, root, path)
+    auto_run = _auto_run(args, root, path)
     res = wizard.ask_round(sid, text, wizard.results_summary(files, root) if root else "", wizard.format_check(text),
                            getattr(args, "no_change_reason", None), sent)
     round_, session = res["round"], res["session"]
@@ -1289,9 +1301,11 @@ def cmd_design_round(args):
         print(wizard.describe_round(round_))
         if sent:
             print("\n" + wizard.files_summary(sent))
+        if wizard.auto_run_line(auto_run):
+            print("\n" + wizard.auto_run_line(auto_run))
         print(f"\nAnswer these yourself at {session['answerUrl']}\nor in a separate terminal: stationhouse design answer")
         print("\n(Coding agents: STOP here. Show the contributor these questions word for word; don't answer them.)")
-    _emit(args, {"session": session, "round": round_}, human)
+    _emit(args, {"session": session, "round": round_, **({"autoRun": auto_run} if auto_run else {})}, human)
     return 3  # waiting for a human
 
 
@@ -1360,7 +1374,11 @@ def cmd_design_status(args):
 
 def cmd_design_finalize(args):
     path, text = _read_design(args.path)
-    res = wizard.finalize(_session_id(args), text, _design_files(args, wizard.repo_root("."), path))
+    root = wizard.repo_root(".")
+    auto_run = _auto_run(args, root, path)
+    res = wizard.finalize(_session_id(args), text, _design_files(args, root, path))
+    if auto_run:
+        res = {**res, "autoRun": auto_run}
 
     def human(d):
         v = d.get("verdict")
@@ -1375,6 +1393,8 @@ def cmd_design_finalize(args):
                 print(f"  {k}: {p.get(k) or 'not stated'}")
             print()
         print(f"Finalized. Put this line in the PR description:\n{d['marker']}")
+        if wizard.auto_run_line(auto_run):
+            print("\n" + wizard.auto_run_line(auto_run))
     _emit(args, res, human)
 
 

@@ -345,6 +345,39 @@ def pr_files(root: Path, design: Path | None = None, base: str | None = None) ->
     return files
 
 
+MAX_ESTIMATE_FILE = 256 * 1024
+
+
+def auto_run_estimate(repo: str, root: Path, design: Path | None = None, base: str | None = None) -> dict | None:
+    """What auto-run would make of this branch's changed files (POST /api/v1/experiments/estimate): their
+    templates and the Modal estimate. Every changed path goes up; only YAML files (where requests live)
+    with their text. None on any error: the estimate never blocks a round."""
+    try:
+        files = []
+        for path in sorted(_changed(root, design, base)):
+            content = None
+            full = root / path
+            if _CONFIG.search(path) and path.lower().endswith((".yaml", ".yml")) and full.is_file() and full.stat().st_size <= MAX_ESTIMATE_FILE:
+                content = full.read_text(encoding="utf-8", errors="replace")
+            files.append({"path": path, "content": content})
+        return request("POST", "/api/v1/experiments/estimate", {"repo": repo, "files": files[:500]})
+    except Exception:  # noqa: BLE001 - fail open
+        return None
+
+
+def auto_run_line(estimate: dict | None) -> str:
+    """The estimate as one line for the contributor, or "" when there's nothing to say."""
+    if not estimate or not estimate.get("requests") and estimate.get("reasons") == ["no experiment templates for this project"]:
+        return ""
+    cap = estimate.get("capUsd", 10)
+    if estimate.get("autoRunnable"):
+        names = ", ".join(sorted({r["templateId"] for r in estimate["requests"] if r.get("templateId")}))
+        return (f"Auto-run: eligible template(s) {names}, est ${estimate.get('totalUsd') or 0:.2f} (cap ${cap:g}). "
+                "It runs once the PR has your finalized Design-Session line and names a task you've claimed.")
+    reasons = estimate.get("reasons") or []
+    return "Auto-run: not eligible — " + "; ".join(reasons[:3]) + (" (and more)" if len(reasons) > 3 else "")
+
+
 def files_summary(files: list[dict]) -> str:
     """One line on what went to the reviewer, for the contributor."""
     if not files:

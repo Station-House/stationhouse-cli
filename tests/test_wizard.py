@@ -304,6 +304,43 @@ def test_round_prints_questions_and_tells_agents_to_stop(repo, hunt_api, capsys,
     assert sent["draft"] == DESIGN and any("Unit and metric" in f for f in sent["formatCheck"])
 
 
+FIRE = "type: activation-test\nshould_fire: []\nshould_not_fire: []\n"
+
+
+def _add_request(repo):
+    (repo / "requests" / "L40-N1-001.yaml").write_text(FIRE)
+    git(repo, "add", ".")
+    git(repo, "commit", "-qm", "yaml")
+
+
+def test_round_prints_the_auto_run_estimate(repo, hunt_api, capsys, monkeypatch):
+    monkeypatch.chdir(repo)
+    _add_request(repo)
+    hunt_api.routes[("GET", "/api/v1/design/sessions")] = (200, {"sessions": [session(roundsAnswered=0, finalSha256=None, status="open")]})
+    rnd = {"n": 1, "focus": "f", "answers": None, "feedback": {"summary": "s", "blocking": [], "questions": []}}
+    hunt_api.routes[("POST", f"/api/v1/design/sessions/{SID}/rounds")] = (200, {"session": session(), "round": rnd})
+    hunt_api.routes[("POST", "/api/v1/experiments/estimate")] = (200, {
+        "project": "marin-neuron-atlas", "requests": [{"path": "requests/L40-N1-001.yaml", "templateId": "marin-neuron-hunt/activation-test",
+                                                      "custom": False, "estUsd": 0.39, "problems": []}],
+        "totalUsd": 0.386, "capUsd": 10, "autoRunnable": True, "reasons": []})
+    assert cli.main(["design", "round", "requests/L40-N1-001/DESIGN.md"]) == 3
+    out = capsys.readouterr().out
+    assert "Auto-run: eligible template(s) marin-neuron-hunt/activation-test, est $0.39 (cap $10)" in out
+    estimate = next(c for c in hunt_api.calls if c["path"] == "/api/v1/experiments/estimate")
+    files = {f["path"]: f["content"] for f in estimate["body"]["files"]}
+    assert estimate["body"]["repo"] == "github:Station-House/marin-neuron-hunt"
+    assert files["requests/L40-N1-001.yaml"] == FIRE
+    assert files["requests/L40-N1-001/DESIGN.md"] is None  # only YAML goes up with its text
+
+
+def test_auto_run_line_says_why_not_and_fails_open(repo, signed_in, api):
+    assert wizard.auto_run_line({"requests": [], "reasons": ["a", "b"], "autoRunnable": False}) == "Auto-run: not eligible — a; b"
+    assert wizard.auto_run_line({"requests": [], "reasons": ["no experiment templates for this project"], "autoRunnable": False}) == ""
+    assert wizard.auto_run_line(None) == ""
+    # The platform answering 404 (or anything else going wrong) is no estimate, never an error.
+    assert wizard.auto_run_estimate("github:Station-House/marin-neuron-hunt", repo) is None
+
+
 def test_answer_refuses_without_a_terminal(repo, hunt_api, capsys, monkeypatch):
     monkeypatch.chdir(repo)
     assert cli.main(["design", "answer", "--session", SID]) == 1
