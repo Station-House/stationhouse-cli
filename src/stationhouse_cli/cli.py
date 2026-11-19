@@ -15,7 +15,7 @@ from importlib import resources
 from pathlib import Path
 
 from . import (__version__, activity_log, chat, config, design, discussions, email_switches, explore as explore_mod, following, gate, inbox, leads, pm,
-               projects, research, sources, traces, train, updates, upgrade, versioncheck, wizard, work)
+               projects, research, sessions, sources, traces, train, updates, upgrade, versioncheck, wizard, work)
 from .auth import (AuthError, DeviceLoginUnavailable, WrongCodeError, current_credentials, device_login,
                    is_platform_page, login, login_with_email_code, normalize_email, request_email_code, sign_out)
 from .client import ApiError, NotFound, SignInRequired, UpgradeRequired, request, signed_in
@@ -499,6 +499,19 @@ def cmd_email(args):
         return 2
     _emit(args, email_switches.summary(data, bool(data.get("changed"))), lambda _: email_switches.render_set(args.kind, data))
 
+
+def cmd_sessions(args):
+    """sessions: your CLI sessions; sessions revoke <id>: end one."""
+    if args.action == "show":
+        if args.session_id:
+            raise ApiError("To end one: stationhouse sessions revoke <id>")
+        data = sessions.fetch()
+        _emit(args, {"sessions": data}, lambda _: sessions.render(data))
+        return
+    if not args.session_id:
+        raise ApiError("Which one? stationhouse sessions revoke <id> (the ids are in `stationhouse sessions`)")
+    data = sessions.revoke(args.session_id)
+    _emit(args, data, sessions.render_revoked)
 
 CARD_ADDED = {
     "added": "It's on your dashboard now.",
@@ -1761,6 +1774,10 @@ def build_parser():
     em.add_argument("action", nargs="?", choices=["show", "set"], default="show")
     em.add_argument("kind", nargs="?", metavar="kind", help="with `set`: digest, activity or announcements")
     em.add_argument("value", nargs="?", metavar="on|off", help="with `set`: on or off")
+    ss = add("sessions", cmd_sessions, "where you're signed in with the CLI (30 days at most each), "
+                                       "or `sessions revoke <id>` to end one")
+    ss.add_argument("action", nargs="?", choices=["show", "revoke"], default="show")
+    ss.add_argument("session_id", nargs="?", metavar="id", help="with `revoke`: the session's id")
     add("claim", cmd_claim, "claim a task (same as `task claim`)", task=True)
     add("release", cmd_release, "release a task you claimed (same as `task release`)", task=True, aliases=["unclaim"])
     cm = add("comment", cmd_comment, "comment on a task (- reads stdin); leads: comment hide|unhide <comment-id>", task=True)
